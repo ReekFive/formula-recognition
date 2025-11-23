@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数学公式识别器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .paste-hint {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            opacity: 0.8;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+        
+        .paste-tutorial {
+            background: #e8f4fd;
+            border: 1px solid #667eea;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #333;
+            font-size: 0.9em;
+            display: none;
+        }
+        
+        .paste-tutorial.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        kbd {
+            background-color: #f4f4f4;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-family: monospace;
+            font-size: 0.9em;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .word-guide-btn {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .word-guide-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .word-guide-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        .upload-area:hover {
+            border-color: #764ba2;
+            background-color: #f8f9ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background-color: #e8f2ff;
+            transform: scale(1.02);
+        }
+        
+        .upload-area.paste-active {
+            border-color: #4CAF50;
+            background-color: #e8f5e8;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .upload-text {
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+        
+        .upload-hint {
+            color: #999;
+            font-size: 0.9em;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 15px;
+            display: none;
+        }
+        
+        .result-layout {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+        }
+        
+        .result-left {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .result-right {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .output-section {
+            margin-bottom: 25px;
+        }
+        
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .result-section.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .formula-output {
+            background: white;
+            border: 1px solid #e0e6ed;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            line-height: 1.6;
+            word-break: break-all;
+        }
+        
+        .formula-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            float: right;
+            margin-top: -5px;
+        }
+        
+        .copy-btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #c33;
+        }
+        
+        .success {
+            background: #efe;
+            color: #3c3;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #3c3;
+        }
+        
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin: 15px 0;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .upload-area {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📐 数学公式识别器</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="paste-hint">Ctrl+V 粘贴</div>
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">拖拽图片到这里、点击选择文件或按Ctrl+V粘贴</div>
+            <div class="upload-hint">支持 PNG, JPG, JPEG, GIF, BMP, TIFF 格式 • 按 Ctrl+V 粘贴图片</div>
+            <input type="file" id="fileInput" class="file-input" accept="image/*">
+        </div>
+        
+        <div style="text-align: center;">
+            <button class="btn" id="selectFileBtn">选择文件</button>
+            <button class="btn" id="clearBtn" style="display: none;">清除结果</button>
+        </div>
+        
+        <div class="paste-tutorial" id="pasteTutorial">
+            <strong>💡 粘贴技巧：</strong><br>
+            1. 截图公式图片（如微信截图、系统截图等）<br>
+            2. 返回此页面，按 <kbd>Ctrl+V</kbd> 或 <kbd>Cmd+V</kbd> 粘贴<br>
+            3. 系统将自动识别并转换公式
+        </div>
+        
+        <div class="word-guide-btn" id="wordGuideBtn">
+            <button class="btn" onclick="showWordGuide()">📖 Word使用指南</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>正在识别公式，请稍候...</div>
+        </div>
+        
+        <div class="result-section" id="resultSection">
+            <div class="result-layout">
+                <!-- 左侧：图片预览和渲染效果 -->
+                <div class="result-left">
+                    <div id="previewContainer"></div>
+                    <div class="formula-label">渲染效果：</div>
+                    <div id="renderOutput" style="text-align: center; padding: 20px; background: white; border-radius: 10px; margin: 15px 0;"></div>
+                </div>
+                
+                <!-- 右侧：公式输出 -->
+                <div class="result-right">
+                    <div class="output-section">
+                        <div class="output-header">
+                            <div class="formula-label">LaTeX 格式</div>
+                            <button class="copy-btn" onclick="copyToClipboard('latexOutput')">复制</button>
+                        </div>
+                        <div class="formula-output" id="latexOutput"></div>
+                    </div>
+                    
+                    <div class="output-section">
+                        <div class="output-header">
+                            <div class="formula-label">MathML (Word) <span style="color: #e74c3c; font-size: 0.8em;">推荐</span></div>
+                            <button class="copy-btn" onclick="copyToClipboard('wordMathmlOutput')">复制</button>
+                        </div>
+                        <div class="formula-output" id="wordMathmlOutput"></div>
+                        <div style="margin-top: 10px; padding: 8px; background: #e8f4fd; border-radius: 5px; font-size: 0.9em; color: #2c5282;">
+                            💡 <strong>使用提示</strong>：复制后，在Word中先按 <kbd>Alt+=</kbd> 插入公式框，然后粘贴
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="messageContainer"></div>
+        
+        <!-- Word使用指南模态框 -->
+        <div id="wordGuideModal" class="word-guide-modal">
+            <div class="word-guide-content">
+                <span class="close-modal" onclick="closeWordGuide()">&times;</span>
+                <h2>📖 Word中插入MathML公式指南</h2>
+                
+                <h3>🎯 支持的Word版本</h3>
+                <ul>
+                    <li>Word 2016 及更高版本</li>
+                    <li>Word 365</li>
+                    <li>Word 2019/2021</li>
+                </ul>
+                
+                <h3>📋 推荐使用方法</h3>
+                <h4>方法1：直接粘贴MathML（推荐）</h4>
+                <ol>
+                    <li>在公式识别器中识别公式</li>
+                    <li>复制"Word兼容MathML"格式</li>
+                    <li>在Word中按以下步骤操作：
+                        <ul>
+                            <li>点击"插入" → "公式" → "插入新公式"</li>
+                            <li>在公式框中粘贴MathML代码</li>
+                            <li>Word会自动转换为可视化公式</li>
+                        </ul>
+                    </li>
+                </ol>
+                
+                <h4>方法2：使用Word方程XML格式</h4>
+                <ol>
+                    <li>复制"Word方程XML"格式</li>
+                    <li>在Word中：
+                        <ul>
+                            <li>按 <kbd>Alt+=</kbd> 插入公式框</li>
+                            <li>粘贴XML代码</li>
+                            <li>Word会自动转换</li>
+                        </ul>
+                    </li>
+                </ol>
+                
+                <h3>⚠️ 常见问题解决</h3>
+                <h4>问题1：粘贴后显示为纯文本</h4>
+                <p><strong>解决方案</strong>：</p>
+                <ul>
+                    <li>确保先插入公式框再粘贴</li>
+                    <li>使用"Word方程XML"格式</li>
+                    <li>检查Word是否支持MathML（需要2016+版本）</li>
+                </ul>
+                
+                <h4>问题2：格式显示不正确</h4>
+                <p><strong>解决方案</strong>：</p>
+                <ul>
+                    <li>使用"Word兼容MathML"格式</li>
+                    <li>确保包含完整的XML声明</li>
+                    <li>尝试不同的粘贴格式</li>
+                </ul>
+                
+                <h3>📊 格式选择建议</h3>
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                    <tr style="background-color: #f8f9ff;">
+                        <th style="padding: 10px; border: 1px solid #ddd;">格式类型</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">适用场景</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">兼容性</th>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #ddd;">标准MathML</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Web显示</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">高</td>
+                    </tr>
+                    <tr style="background-color: #f8f9ff;">
+                        <td style="padding: 10px; border: 1px solid #ddd;">Word兼容MathML</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Word 2016+</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">高</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Word方程XML</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Word公式框</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">最高</td>
+                    </tr>
+                </table>
+                
+                <h3>💡 最佳实践</h3>
+                <ul>
+                    <li><strong>简单公式</strong>：使用"Word方程XML"格式</li>
+                    <li><strong>复杂公式</strong>：使用"Word兼容MathML"格式</li>
+                    <li><strong>兼容性优先</strong>：总是先插入公式框再粘贴</li>
+                </ul>
+                
+                <h3>🔄 替代方案</h3>
+                <p>如果MathML格式仍有问题，可以考虑：</p>
+                <ul>
+                    <li><strong>LaTeX格式</strong>：Word支持LaTeX公式</li>
+                    <li><strong>图片格式</strong>：将公式保存为图片插入</li>
+                    <li><strong>手动输入</strong>：使用Word公式编辑器</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        // MathJax配置
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+
+        // DOM元素
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const selectFileBtn = document.getElementById('selectFileBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const messageContainer = document.getElementById('messageContainer');
+
+        // 事件监听器
+        uploadArea.addEventListener('click', () => fileInput.click());
+        selectFileBtn.addEventListener('click', () => fileInput.click());
+        clearBtn.addEventListener('click', clearResults);
+
+        // 拖拽上传
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // 监听粘贴事件
+        document.addEventListener('paste', (e) => {
+            const items = e.clipboardData.items;
+            let hasImage = false;
+            
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    // 显示粘贴视觉反馈
+                    uploadArea.classList.add('paste-active');
+                    setTimeout(() => {
+                        uploadArea.classList.remove('paste-active');
+                    }, 500);
+                    
+                    const file = items[i].getAsFile();
+                    handleFile(file);
+                    showMessage('检测到剪贴板图片，正在处理...', 'success');
+                    hasImage = true;
+                    break;
+                }
+            }
+            
+            if (!hasImage && e.clipboardData.files.length === 0) {
+                showMessage('剪贴板中没有检测到图片', 'error');
+            }
+        });
+
+        // 处理文件
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showMessage('请选择图片文件', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // 显示加载状态
+            loading.classList.add('show');
+            resultSection.classList.remove('show');
+            messageContainer.innerHTML = '';
+
+            // 上传文件
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.remove('show');
+                
+                if (data.success) {
+                    displayResults(data, file);
+                    showMessage('公式识别成功！', 'success');
+                } else {
+                    showMessage(data.error || '识别失败', 'error');
+                }
+            })
+            .catch(error => {
+                loading.classList.remove('show');
+                showMessage('上传失败: ' + error.message, 'error');
+            });
+        }
+
+        // 显示结果
+        function displayResults(data, file) {
+            // 显示图片预览
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('previewContainer').innerHTML = 
+                    `<img src="${e.target.result}" class="preview-image" alt="上传的图片">`;
+            };
+            reader.readAsDataURL(file);
+
+            // 显示公式（只保留LaTeX和Word MathML）
+            document.getElementById('latexOutput').textContent = data.latex;
+            document.getElementById('wordMathmlOutput').textContent = data.mathml_word_compatible || data.mathml;
+            
+            // 渲染LaTeX
+            const renderDiv = document.getElementById('renderOutput');
+            renderDiv.innerHTML = data.latex_display;
+            
+            // 重新渲染MathJax
+            if (window.MathJax) {
+                MathJax.typesetPromise([renderDiv]).then(() => {
+                    console.log('MathJax渲染完成');
+                });
+            }
+
+            resultSection.classList.add('show');
+            clearBtn.style.display = 'inline-block';
+        }
+
+        // 清除结果
+        function clearResults() {
+            resultSection.classList.remove('show');
+            clearBtn.style.display = 'none';
+            fileInput.value = '';
+            messageContainer.innerHTML = '';
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            // 清理文本，移除可能的$$符号
+            let cleanedText = text;
+            if (elementId === 'latexOutput') {
+                // 对于LaTeX格式，确保没有多余的$$符号
+                cleanedText = text.replace(/^\$\$\s*/, '').replace(/\s*\$\$$/, '');
+            }
+            
+            navigator.clipboard.writeText(cleanedText).then(() => {
+                let formatName = elementId === 'latexOutput' ? 'LaTeX格式' : 'MathML(Word)格式';
+                showMessage(`${formatName}已复制到剪贴板`, 'success');
+            }).catch(() => {
+                showMessage('复制失败', 'error');
+            });
+        }
+
+        // 显示消息
+        function showMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type;
+            messageDiv.textContent = message;
+            messageContainer.innerHTML = '';
+            messageContainer.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+
+        // 首次访问显示粘贴教程
+        function showFirstTimeTutorial() {
+            const hasSeenTutorial = localStorage.getItem('hasSeenPasteTutorial');
+            if (!hasSeenTutorial) {
+                setTimeout(() => {
+                    document.getElementById('pasteTutorial').classList.add('show');
+                    localStorage.setItem('hasSeenPasteTutorial', 'true');
+                    
+                    // 5秒后自动隐藏教程
+                    setTimeout(() => {
+                        document.getElementById('pasteTutorial').classList.remove('show');
+                    }, 5000);
+                }, 1000);
+            }
+        }
+
+        // 页面加载完成后显示教程
+        document.addEventListener('DOMContentLoaded', showFirstTimeTutorial);
+
+        // Word指南模态框控制
+        function showWordGuide() {
+            document.getElementById('wordGuideModal').style.display = 'block';
+        }
+
+        function closeWordGuide() {
+            document.getElementById('wordGuideModal').style.display = 'none';
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('wordGuideModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
