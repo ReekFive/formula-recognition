@@ -41,9 +41,18 @@ venv.bak/
 uploads/
 test_formula_*.png
 *.processed.png
+*_processed.png
 
-# Test files - 现在统一放在tests/目录下
-tests/
+# Temporary test files in root directory
+test_*.py
+debug_*.py
+manual_*.py
+new_*.py
+word_*.py
+*_fixed.py
+
+# Project specific
+.trae/
 
 # macOS
 .DS_Store

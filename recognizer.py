@@ -160,13 +160,15 @@ class FormulaRecognizer:
         formula = formula.replace(r'\left', '')
         formula = formula.replace(r'\right', '')
         
-        # 清理小写的left和right（Pix2Text有时会输出这些）
+        # 清理小写的left和right（Pix2Text有时会输出这些）- 修复：避免拆散命令
         formula = formula.replace('left(', '(')
         formula = formula.replace('right)', ')')
         formula = formula.replace('left|', '|')
         formula = formula.replace('right|', '|')
-        formula = formula.replace('left', '')
-        formula = formula.replace('right', '')
+        # 修复：使用正则表达式避免拆散LaTeX命令
+        import re
+        formula = re.sub(r'(?<!\\)left\b', '', formula)  # 只删除独立的left单词
+        formula = re.sub(r'(?<!\\)right\b', '', formula)  # 只删除独立的right单词
         
         return formula.strip()
     

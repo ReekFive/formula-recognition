@@ -1,0 +1,1 @@
+S=\frac{4\left(l+R\right)^2}{\left(\frac{\sigma_f}{\sigma_r}+\frac{\sigma_r}{\sigma_f}\right)^2\left(1+R_0\right)^2}

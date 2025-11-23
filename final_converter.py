@@ -1,20 +1,11 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-最终版LaTeX到MathML转换器
-专门针对Word兼容性，生成精确的MathML格式
+Word兼容的MathML转换器
+完全重新设计，使用递归下降解析
 """
-
-import re
 
 class WordMathMLConverter:
-    """Word兼容的MathML转换器"""
-    
     def __init__(self):
-        """初始化转换器"""
-        self.mathml_ns = "http://www.w3.org/1998/Math/MathML"
-        
-        # 希腊字母映射
         self.greek_letters = {
             'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ',
             'epsilon': 'ε', 'zeta': 'ζ', 'eta': 'η', 'theta': 'θ',
@@ -23,368 +14,392 @@ class WordMathMLConverter:
             'sigma': 'σ', 'tau': 'τ', 'upsilon': 'υ', 'phi': 'φ',
             'chi': 'χ', 'psi': 'ψ', 'omega': 'ω'
         }
-        
-        # 数学符号映射
-        self.math_symbols = {
-            'cdot': '·', 'times': '×', 'div': '÷',
-            'pm': '±', 'mp': '∓', 'neq': '≠',
-            'leq': '≤', 'geq': '≥', 'll': '≪', 'gg': '≫',
-            'infty': '∞', 'propto': '∝', 'sim': '∼',
-            'approx': '≈', 'subset': '⊂', 'supset': '⊃',
-            'subseteq': '⊆', 'supseteq': '⊇'
-        }
     
-    def convert(self, latex: str) -> str:
-        """转换LaTeX到MathML"""
-        try:
-            # 预处理
-            latex = self._preprocess(latex)
-            
-            # 使用递归下降解析器
-            result, _ = self._parse_formula(latex)
-            
-            # 构建MathML
-            mathml_lines = ['<math xmlns="http://www.w3.org/1998/Math/MathML">']
-            mathml_lines.extend(result)
-            mathml_lines.append('</math>')
-            
-            return '\n'.join(mathml_lines)
-            
-        except Exception as e:
-            print(f"转换失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return self._create_basic_mathml(latex)
-    
-    def _preprocess(self, latex: str) -> str:
-        """预处理LaTeX"""
-        latex = latex.strip()
+    def convert(self, formula):
+        """转换LaTeX公式为MathML"""
+        result = ['<math xmlns="http://www.w3.org/1998/Math/MathML">']
         
-        # 移除公式环境标记
-        if latex.startswith('$$') and latex.endswith('$$'):
-            latex = latex[2:-2].strip()
-        elif latex.startswith('$') and latex.endswith('$'):
-            latex = latex[1:-1].strip()
-        elif latex.startswith(r'\[') and latex.endswith(r'\]'):
-            latex = latex[2:-2].strip()
+        # 处理整个公式
+        content, _ = self._parse_expression(formula.strip())
+        result.extend(content)
         
-        return latex
+        result.append('</math>')
+        return '\n'.join(result)
     
-    def _parse_formula(self, formula: str, start_pos: int = 0) -> tuple:
-        """解析公式，返回(结果列表, 新位置)"""
+    def _parse_expression(self, expr):
+        """解析表达式，返回(MathML行列表, 新位置)"""
         result = []
-        i = start_pos
+        i = 0
         
-        while i < len(formula):
-            char = formula[i]
-            
+        while i < len(expr):
             # 跳过空格
-            if char.isspace():
+            if expr[i].isspace():
                 i += 1
                 continue
             
             # LaTeX命令
-            if char == '\\':
-                cmd, length = self._parse_command(formula, i)
-                cmd_result = self._handle_command(cmd, formula, i + length)
-                result.extend(cmd_result)
-                i += length
-                # 对于\sqrt等命令，需要跳过花括号内容
-                if cmd in ['\\sqrt', '\\frac'] and i < len(formula) and formula[i] == '{':
-                    _, brace_length = self._parse_braced_content(formula, i)
-                    i += brace_length
-                continue
+            if expr[i] == '\\':
+                cmd_result, new_i = self._parse_command(expr, i)
+                if cmd_result:
+                    result.extend(cmd_result)
+                    i = new_i
+                    continue
             
-            # 上标
-            elif char == '^':
-                if result:
-                    # 获取底数
-                    base = result.pop()
-                    
-                    # 解析上标内容
-                    if i + 1 < len(formula) and formula[i + 1] == '{':
-                        superscript, length = self._parse_braced_content(formula, i + 1)
-                        i += length
-                    else:
-                        superscript = formula[i + 1] if i + 1 < len(formula) else ''
-                        i += 1
-                    
-                    # 生成上标MathML
-                    result.append('  <msup>')
-                    result.append('    <mrow>')
-                    result.append(f'      {base}')
-                    result.append('    </mrow>')
-                    result.append('    <mrow>')
-                    sup_result, _ = self._parse_formula(superscript)
-                    result.extend(sup_result)
-                    result.append('    </mrow>')
-                    result.append('  </msup>')
-                i += 1
-                continue
-            
-            # 下标
-            elif char == '_':
-                if result:
-                    # 获取底数
-                    base = result.pop()
-                    
-                    # 检查是否同时有上标（用于msubsup）
-                    has_superscript = False
-                    temp_i = i + 1
-                    
-                    # 解析下标内容
-                    if temp_i < len(formula) and formula[temp_i] == '{':
-                        subscript, sub_length = self._parse_braced_content(formula, temp_i)
-                        temp_i += sub_length
-                    else:
-                        subscript = formula[temp_i] if temp_i < len(formula) else ''
-                        temp_i += 1
-                    
-                    # 检查下标后是否紧跟上标
-                    if temp_i < len(formula) and formula[temp_i] == '^':
-                        has_superscript = True
-                        temp_i += 1
-                        if temp_i < len(formula) and formula[temp_i] == '{':
-                            superscript, sup_length = self._parse_braced_content(formula, temp_i)
-                            temp_i += sup_length
-                        else:
-                            superscript = formula[temp_i] if temp_i < len(formula) else ''
-                            temp_i += 1
-                        
-                        # 生成msubsup
-                        result.append('  <msubsup>')
-                        result.append('    <mrow>')
-                        result.append(f'      {base}')
-                        result.append('    </mrow>')
-                        result.append('    <mrow>')
-                        sub_result, _ = self._parse_formula(subscript)
-                        result.extend(sub_result)
-                        result.append('    </mrow>')
-                        result.append('    <mrow>')
-                        sup_result, _ = self._parse_formula(superscript)
-                        result.extend(sup_result)
-                        result.append('    </mrow>')
-                        result.append('  </msubsup>')
-                        i = temp_i
-                        continue
-                    else:
-                        # 只有下标
-                        result.append('   <msub>')
-                        result.append('     <mrow>')
-                        result.append(f'       {base}')
-                        result.append('     </mrow>')
-                        result.append('     <mrow>')
-                        sub_result, _ = self._parse_formula(subscript)
-                        result.extend(sub_result)
-                        result.append('     </mrow>')
-                        result.append('   </msub>')
-                        i = temp_i
-                        continue
-                else:
-                    i += 1
-            
-            # 数学运算符
-            elif char in '+-=<>≠≤≥×÷·()[]|,':
-                op_map = {
-                    '+': '+', '-': '-', '=': '=',
-                    '(': '(', ')': ')', '[': '[', ']': ']',
-                    '|': '|', ',': ',', '.': '.'
-                }
-                op_text = op_map.get(char, char)
-                result.append(f'  <mo>{op_text}</mo>')
-                i += 1
-            
-            # 数字
-            elif char.isdigit() or char == '.':
-                num = char
-                i += 1
-                while i < len(formula) and (formula[i].isdigit() or formula[i] == '.'):
-                    num += formula[i]
-                    i += 1
-                result.append(f'  <mn>{num}</mn>')
+            # 圆括号
+            elif expr[i] == '(':
+                paren_result, new_i = self._parse_parentheses(expr, i)
+                if paren_result:
+                    result.extend(paren_result)
+                    i = new_i
+                    continue
             
             # 字母变量
-            elif char.isalpha():
-                var = char
+            elif expr[i].isalpha():
+                var = expr[i]
                 i += 1
-                while i < len(formula) and formula[i].isalpha():
-                    var += formula[i]
+                while i < len(expr) and expr[i].isalpha():
+                    var += expr[i]
                     i += 1
                 
-                # 将多字符变量名拆分为单个字符（Word要求）
-                for c in var:
-                    result.append(f'  <mi>{c}</mi>')
+                # 检查是否有下标
+                if i < len(expr) and expr[i] == '_':
+                    subscript, new_i = self._parse_subscript(expr, i + 1)
+                    if subscript:
+                        sub_tag = self._get_subscript_tag(subscript)
+                        result.extend([
+                            '  <msub>',
+                            f'    <mi>{var}</mi>',
+                            f'    <{sub_tag}>{subscript}</{sub_tag}>',
+                            '  </msub>'
+                        ])
+                        i = new_i
+                        continue
+                
+                result.append(f'  <mi>{var}</mi>')
+                continue
             
-            # 其他字符（跳过花括号）
-            elif char in '{}':
+            # 数字
+            elif expr[i].isdigit():
+                num = expr[i]
                 i += 1
+                while i < len(expr) and expr[i].isdigit():
+                    num += expr[i]
+                    i += 1
+                result.append(f'  <mn>{num}</mn>')
+                continue
             
-            # 其他字符
+            # 运算符
+            elif expr[i] in '+-=':
+                result.append(f'  <mo>{expr[i]}</mo>')
+                i += 1
+                continue
+            
+            # 跳过其他字符
             else:
-                result.append(f'  <mi>{char}</mi>')
                 i += 1
         
         return result, i
     
-    def _parse_command(self, formula: str, start: int) -> tuple:
-        """解析LaTeX命令"""
-        i = start + 1  # 跳过反斜杠
+    def _parse_command(self, expr, start):
+        """解析LaTeX命令，返回(MathML行列表, 新位置)"""
+        i = start + 1
         cmd = ''
         
-        while i < len(formula) and formula[i].isalpha():
-            cmd += formula[i]
+        # 读取命令名
+        while i < len(expr) and expr[i].isalpha():
+            cmd += expr[i]
             i += 1
         
-        return f'\\{cmd}', i - start
-    
-    def _parse_braced_content(self, formula: str, start: int) -> tuple:
-        """解析花括号内容"""
-        if start >= len(formula) or formula[start] != '{':
-            return '', 1
+        # 分数
+        if cmd == 'frac':
+            return self._parse_fraction(expr, i)
         
-        brace_count = 0
+        # left/right命令 - 跳过命令和后面的分隔符
+        elif cmd == 'left' or cmd == 'right':
+            # 跳过空格
+            while i < len(expr) and expr[i].isspace():
+                i += 1
+            # 跳过分隔符字符 (如 (, ), |, [, ], {, } 等)
+            if i < len(expr) and expr[i] in '()[]{}|':
+                i += 1
+            return [], i
+        
+        # 希腊字母
+        elif cmd in self.greek_letters:
+            # 检查是否有下标
+            if i < len(expr) and expr[i] == '_':
+                subscript, new_i = self._parse_subscript(expr, i + 1)
+                if subscript:
+                    sub_tag = self._get_subscript_tag(subscript)
+                    return [
+                        '  <msub>',
+                        f'    <mi>{self.greek_letters[cmd]}</mi>',
+                        f'    <{sub_tag}>{subscript}</{sub_tag}>',
+                        '  </msub>'
+                    ], new_i
+
+            return [f'  <mi>{self.greek_letters[cmd]}</mi>'], i
+        
+        # 其他命令
+        else:
+            return [f'  <mi>{cmd}</mi>'], i
+    
+    def _parse_fraction(self, expr, start):
+        """解析分数，返回(MathML行列表, 新位置)"""
+        # 跳过前导空格
+        i = start
+        while i < len(expr) and expr[i].isspace():
+            i += 1
+        
+        # 解析分子
+        if i < len(expr) and expr[i] == '{':
+            numerator, i = self._parse_braced_content(expr, i)
+        else:
+            return [], start
+        
+        # 跳过中间的空格
+        while i < len(expr) and expr[i].isspace():
+            i += 1
+        
+        # 解析分母
+        if i < len(expr) and expr[i] == '{':
+            denominator, i = self._parse_braced_content(expr, i)
+        else:
+            return [], start
+        
+        # 生成分子MathML
+        num_lines, _ = self._parse_expression(numerator)
+        
+        # 生成分母MathML
+        den_lines, _ = self._parse_expression(denominator)
+        
+        result = ['  <mfrac>']
+
+        # 分子 - 只在不是单个元素时用<mrow>包装
+        if not self._is_single_element(num_lines):
+            result.append('    <mrow>')
+            for line in num_lines:
+                result.append(f'      {line[2:]}')  # 移除前导空格并增加缩进
+            result.append('    </mrow>')
+        else:
+            for line in num_lines:
+                result.append(f'    {line[2:]}')  # 移除前导空格
+
+        # 分母 - 只在不是单个元素时用<mrow>包装
+        if not self._is_single_element(den_lines):
+            result.append('    <mrow>')
+            for line in den_lines:
+                result.append(f'      {line[2:]}')  # 移除前导空格并增加缩进
+            result.append('    </mrow>')
+        else:
+            for line in den_lines:
+                result.append(f'    {line[2:]}')  # 移除前导空格
+
+        result.append('  </mfrac>')
+        
+        return result, i
+    
+    def _parse_parentheses(self, expr, start):
+        """解析圆括号及其内容"""
+        if start >= len(expr) or expr[start] != '(':
+            return [], start
+        
+        # 找到匹配的右括号
+        content, end_pos = self._find_matching_parenthesis(expr, start)
+        if content is None:
+            return ['  <mo>(</mo>'], start + 1
+        
+        # 检查是否有上标
+        i = end_pos
+        has_superscript = False
+        superscript = ''
+        
+        if i < len(expr) and expr[i] == '^':
+            has_superscript = True
+            superscript, i = self._parse_braced_content(expr, i + 1)
+        
+        # 解析括号内容
+        content_lines, _ = self._parse_expression(content)
+        
+        if has_superscript and superscript:
+            # 有上标的括号
+            superscript_lines, _ = self._parse_expression(superscript)
+
+            result = [
+                '  <msup>',
+                '    <mfenced open="(" close=")" separators="|">',
+                '      <mrow>'
+            ]
+            result.extend([f'        {line[2:]}' for line in content_lines])
+            result.append('      </mrow>')
+            result.append('    </mfenced>')
+
+            # 添加实际的上标内容
+            for line in superscript_lines:
+                result.append(f'    {line[2:]}')
+
+            result.append('  </msup>')
+        else:
+            # 普通括号
+            result = [
+                '  <mfenced open="(" close=")" separators="|">',
+                '    <mrow>'
+            ]
+            result.extend([f'      {line[2:]}' for line in content_lines])
+            result.extend([
+                '    </mrow>',
+                '  </mfenced>'
+            ])
+        
+        return result, i
+    
+    def _find_matching_parenthesis(self, expr, start):
+        """找到匹配的圆括号，返回(内容, 新位置)"""
+        if start >= len(expr) or expr[start] != '(':
+            return None, start
+        
+        depth = 0
         content = ''
         i = start + 1
         
-        while i < len(formula):
-            if formula[i] == '{':
-                brace_count += 1
-            elif formula[i] == '}':
-                if brace_count == 0:
-                    break
-                brace_count -= 1
-            content += formula[i]
+        while i < len(expr):
+            if expr[i] == '(':
+                depth += 1
+                content += expr[i]
+            elif expr[i] == ')':
+                if depth == 0:
+                    return content, i + 1
+                depth -= 1
+                content += expr[i]
+            elif expr[i] == '{':
+                # 跳过花括号内容，避免干扰圆括号匹配
+                brace_content, new_i = self._parse_braced_content(expr, i)
+                content += '{' + brace_content + '}'
+                i = new_i - 1  # -1 因为循环会+1
+            else:
+                content += expr[i]
             i += 1
         
-        return content, i - start + 1
+        return None, start
     
-    def _handle_command(self, cmd: str, formula: str, start: int) -> list:
-        """处理LaTeX命令"""
-        cmd_name = cmd[1:]  # 移除反斜杠
+    def _parse_braced_content(self, expr, start):
+        """解析花括号内容，返回(内容, 新位置)"""
+        # 跳过前导空格
+        while start < len(expr) and expr[start].isspace():
+            start += 1
         
-        # 希腊字母
-        if cmd_name in self.greek_letters:
-            return [f'  <mi>{self.greek_letters[cmd_name]}</mi>']
+        if start >= len(expr) or expr[start] != '{':
+            return '', start
         
-        # 数学符号
-        elif cmd_name in self.math_symbols:
-            return [f'  <mo>{self.math_symbols[cmd_name]}</mo>']
+        brace_count = 1
+        content = ''
+        i = start + 1
         
-        # 分数
-        elif cmd_name == 'frac':
-            # 解析分子和分母
-            numerator, len1 = self._parse_braced_content(formula, start)
-            denominator, len2 = self._parse_braced_content(formula, start + len1)
-            
-            result = ['  <mfrac>']
-            result.append('    <mrow>')
-            num_result, _ = self._parse_formula(numerator)
-            result.extend(num_result)
-            result.append('    </mrow>')
-            result.append('    <mrow>')
-            den_result, _ = self._parse_formula(denominator)
-            result.extend(den_result)
-            result.append('    </mrow>')
-            result.append('  </mfrac>')
-            
-            return result
-        
-        # 平方根
-        elif cmd_name == 'sqrt':
-            content, length = self._parse_braced_content(formula, start)
-            
-            result = ['  <msqrt>']
-            result.append('    <mrow>')
-            content_result, _ = self._parse_formula(content)
-            result.extend(content_result)
-            result.append('    </mrow>')
-            result.append('  </msqrt>')
-            
-            return result
-        
-        # 求和符号
-        elif cmd_name == 'sum':
-            result = ['  <msubsup>']
-            result.append('    <mi>∑</mi>')
-            
-            # 检查是否有下标
-            if start < len(formula) and formula[start] == '_':
-                if start + 1 < len(formula) and formula[start + 1] == '{':
-                    subscript, length = self._parse_braced_content(formula, start + 1)
-                    result.append('    <mrow>')
-                    sub_result, _ = self._parse_formula(subscript)
-                    result.extend(sub_result)
-                    result.append('    </mrow>')
-                else:
-                    result.append('    <mrow/>')
+        while i < len(expr) and brace_count > 0:
+            if expr[i] == '{':
+                brace_count += 1
+                content += expr[i]
+            elif expr[i] == '}':
+                brace_count -= 1
+                if brace_count > 0:
+                    content += expr[i]
             else:
-                result.append('    <mrow/>')
-            
-            # 检查是否有上标
-            next_pos = start
-            if start < len(formula) and formula[start] == '_':
-                # 跳过下标部分
-                if start + 1 < len(formula) and formula[start + 1] == '{':
-                    _, length = self._parse_braced_content(formula, start + 1)
-                    next_pos = start + length
-                else:
-                    next_pos = start + 2
-            
-            if next_pos < len(formula) and formula[next_pos] == '^':
-                if next_pos + 1 < len(formula) and formula[next_pos + 1] == '{':
-                    superscript, length = self._parse_braced_content(formula, next_pos + 1)
-                    result.append('    <mrow>')
-                    sup_result, _ = self._parse_formula(superscript)
-                    result.extend(sup_result)
-                    result.append('    </mrow>')
-                else:
-                    result.append('    <mrow/>')
-            else:
-                result.append('    <mrow/>')
-            
-            result.append('  </msubsup>')
-            return result
+                content += expr[i]
+            i += 1
         
-        # 未知命令
+        if brace_count == 0:
+            return content.strip(), i
         else:
-            # 将命令名拆分为单个字符
-            result = []
-            for c in cmd_name:
-                result.append(f'  <mi>{c}</mi>')
-            return result
+            return content.strip(), i
     
-    def _create_basic_mathml(self, latex: str) -> str:
-        """创建基本MathML"""
-        return f'''<math xmlns="{self.mathml_ns}">
-  <mrow>
-    <mi>{latex[:100]}</mi>
-  </mrow>
-</math>'''
+    def _parse_subscript(self, expr, start):
+        """解析下标，返回(内容, 新位置)"""
+        if start < len(expr) and expr[start] == '{':
+            content, new_i = self._parse_braced_content(expr, start)
+            return content, new_i
+        elif start < len(expr):
+            return expr[start], start + 1
+        else:
+            return '', start
 
-def test_final_converter():
-    """测试最终版转换器"""
+    def _get_subscript_tag(self, content):
+        """根据内容决定使用<mi>还是<mn>标签"""
+        if content.isdigit():
+            return 'mn'
+        else:
+            return 'mi'
+
+    def _is_single_element(self, lines):
+        """检查MathML行列表是否表示单个元素"""
+        if not lines:
+            return False
+        if len(lines) == 1:
+            # 单行，必定是单个元素
+            return True
+
+        # 多行时，通过标签深度追踪来确定是否只有一个顶层元素
+        depth = 0
+        first_tag_closed = False
+
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            # 处理自闭合标签或注释
+            if stripped.startswith('<!--') or '/>' in stripped:
+                if depth == 0 and first_tag_closed:
+                    return False  # 第一个元素后还有元素
+                continue
+
+            # 处理同一行包含完整标签的情况 (如 <mi>x</mi>)
+            if '<' in stripped and '>' in stripped and '</' in stripped:
+                # 提取开始标签名
+                start_idx = stripped.find('<')
+                end_idx = stripped.find('>', start_idx)
+                if end_idx > start_idx:
+                    tag_part = stripped[start_idx+1:end_idx]
+                    tag_name = tag_part.split()[0] if tag_part else ''
+
+                    # 检查是否有对应的结束标签在同一行
+                    close_tag = f'</{tag_name}>'
+                    if close_tag in stripped:
+                        # 这是一个自包含的标签，depth不变
+                        if depth == 0:
+                            if first_tag_closed:
+                                return False  # 多个顶层元素
+                            first_tag_closed = True
+                        continue
+
+            # 结束标签
+            if stripped.startswith('</'):
+                depth -= 1
+                if depth == 0:
+                    first_tag_closed = True
+                elif depth < 0:
+                    # 深度为负，说明结构有问题
+                    return False
+            # 开始标签
+            elif stripped.startswith('<'):
+                if first_tag_closed:
+                    # 第一个顶层元素已经关闭，但又遇到新的开始标签
+                    # 说明有多个顶层元素
+                    return False
+                depth += 1
+
+        # 只有一个顶层元素当且仅当第一个标签被正确关闭，且没有其他顶层元素
+        return first_tag_closed and depth == 0
+
+# 测试
+if __name__ == "__main__":
     converter = WordMathMLConverter()
     
-    test_cases = [
-        'C_{total}',
-        'E = mc^{2}',
-        'x^2 + y^2 = z^2',
-        '\\frac{a}{b}',
-        '\\sqrt{x}',
-        '\\alpha + \\beta',
-        '\\sum_{i=1}^{n} x_i',
-        'a_{1} + a_{2}',
-    ]
+    # 测试复杂公式
+    test_formula = r"S=\frac{4 ( l+R )^{2}} {( \frac{\sigma_{f}} {\sigma_{r}}+\frac{\sigma_{r}} {\sigma_{f}} )^{2} ( 1+R_{0} )^{2}}"
     
-    print("最终版Word兼容MathML转换器测试")
+    print("测试修复后的转换器：")
     print("=" * 60)
-    
-    for latex in test_cases:
-        print(f"\nLaTeX: {latex}")
-        mathml = converter.convert(latex)
-        print("MathML:")
-        print(mathml)
-        print("-" * 40)
-
-if __name__ == '__main__':
-    test_final_converter()
+    print(f"公式: {test_formula}")
+    print("\n生成的MathML:")
+    result = converter.convert(test_formula)
+    print(result)
