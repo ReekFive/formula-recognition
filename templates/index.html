@@ -34,10 +34,10 @@
         /* --- 核心容器：像一张A4纸居中 --- */
         .app-wrapper {
             width: 100%;
-            max-width: 540px;
+            max-width: 720px;
             background: var(--surface);
-            padding: 40px;
-            border-radius: 12px;
+            padding: 50px;
+            border-radius: 16px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
             border: 1px solid var(--border);
             transition: all 0.3s ease;
@@ -45,7 +45,7 @@
 
         /* --- 头部 --- */
         .header {
-            margin-bottom: 30px;
+            margin-bottom: 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -53,20 +53,20 @@
 
         .brand {
             font-weight: 700;
-            font-size: 1.1rem;
+            font-size: 1.4rem;
             letter-spacing: -0.5px;
         }
 
         .status {
-            font-size: 0.8rem;
+            font-size: 1rem;
             color: var(--text-light);
         }
 
         /* --- 上传区：极致隐形 --- */
         .upload-zone {
-            border: 1.5px dashed #DDD;
-            border-radius: 8px;
-            height: 200px;
+            border: 2px dashed #DDD;
+            border-radius: 10px;
+            height: 260px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -84,14 +84,14 @@
         .upload-zone p {
             margin: 0;
             color: var(--text-light);
-            font-size: 0.9rem;
+            font-size: 1.1rem;
         }
 
         .kbd {
             background: #eee;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-size: 0.9rem;
             font-family: monospace;
         }
 
@@ -103,12 +103,12 @@
 
         /* 渲染结果：最大化展示 */
         .math-display {
-            font-size: 1.5rem;
-            padding: 20px 0;
+            font-size: 2rem;
+            padding: 30px 0;
             text-align: center;
             border-bottom: 1px solid var(--border);
-            margin-bottom: 24px;
-            min-height: 80px;
+            margin-bottom: 30px;
+            min-height: 100px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -116,13 +116,13 @@
 
         /* 极简的复制按钮区域 */
         .code-group {
-            margin-bottom: 16px;
+            margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 16px;
+            padding: 16px 20px;
             background: #F7F7F7;
-            border-radius: 6px;
+            border-radius: 8px;
             transition: all 0.2s;
         }
 
@@ -131,7 +131,7 @@
         }
 
         .code-label {
-            font-size: 0.75rem;
+            font-size: 0.95rem;
             font-weight: 600;
             color: var(--text-light);
             text-transform: uppercase;
@@ -142,9 +142,9 @@
             background: #FFF;
             border: 1px solid #DDD;
             color: var(--text);
-            font-size: 0.75rem;
-            padding: 6px 14px;
-            border-radius: 4px;
+            font-size: 0.9rem;
+            padding: 8px 18px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: 500;
             transition: all 0.2s;
@@ -157,24 +157,18 @@
 
         /* 底部工具栏 */
         .footer-tools {
-            margin-top: 30px;
+            margin-top: 40px;
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
             border-top: 1px solid var(--border);
-            padding-top: 20px;
-        }
-
-        .preview-thumb {
-            height: 32px;
-            border-radius: 4px;
-            border: 1px solid #eee;
+            padding-top: 24px;
         }
 
         .reset-link {
             color: var(--text-light);
             text-decoration: none;
-            font-size: 0.85rem;
+            font-size: 1rem;
             cursor: pointer;
             transition: color 0.2s;
         }
@@ -229,14 +223,14 @@
         /* Toast */
         .toast {
             position: fixed;
-            bottom: 20px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
             background: #333;
             color: #fff;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.8rem;
+            padding: 10px 20px;
+            border-radius: 24px;
+            font-size: 1rem;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
@@ -284,10 +278,6 @@
             </div>
 
             <div class="footer-tools">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <img src="" id="thumbPreview" class="preview-thumb" style="display:none;">
-                    <span style="font-size:0.75rem; color:#999;">Rendered with MathJax</span>
-                </div>
                 <a class="reset-link" onclick="resetApp()">Scan Another</a>
             </div>
         </div>
@@ -352,15 +342,6 @@
             loader.style.display = 'block';
             statusText.textContent = 'Processing...';
 
-            // 缩略图预览
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = document.getElementById('thumbPreview');
-                img.src = e.target.result;
-                img.style.display = 'block';
-            };
-            reader.readAsDataURL(file);
-
             // 调用后端 API
             const formData = new FormData();
             formData.append('file', file);
@@ -404,7 +385,6 @@
             dropZone.style.display = 'flex';
             statusText.textContent = 'Ready';
             fileInput.value = '';
-            document.getElementById('thumbPreview').style.display = 'none';
             formulaData = { latex: '', mathml: '' };
         }
 
