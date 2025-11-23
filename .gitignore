@@ -42,11 +42,8 @@ uploads/
 test_formula_*.png
 *.processed.png
 
-# Test files (保留核心测试文件，忽略临时测试文件)
-test_*_old.py
-test_*_backup.py
-temp_*.py
-debug_*.py
+# Test files - 现在统一放在tests/目录下
+tests/
 
 # macOS
 .DS_Store
