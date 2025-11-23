@@ -1,731 +1,591 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>数学公式识别器</title>
+    <title>MathPix Lite - 现代极简公式识别</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
+        /* --- 核心变量定义 --- */
+        :root {
+            /* 品牌色：使用更高级的靛蓝色 (Indigo) 代替原本的高饱和紫色 */
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            /* 背景色系 */
+            --bg-body: #F9FAFB;
+            --bg-card: #FFFFFF;
+            /* 文字颜色 */
+            --text-main: #111827;
+            --text-sub: #6B7280;
+            /* 边框与分割线 */
+            --border: #E5E7EB;
+            /* 代码块样式 */
+            --code-bg: #1F2937;
+            --code-text: #F3F4F6;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 20px;
+            padding: 60px 20px;
+            line-height: 1.6;
         }
-        
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            padding: 40px;
-            max-width: 800px;
-            width: 100%;
-        }
-        
-        h1 {
+
+        /* --- 头部设计 --- */
+        header {
             text-align: center;
-            color: #333;
-            margin-bottom: 30px;
-            font-size: 2.5em;
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            margin-bottom: 40px;
+            animation: fadeIn 0.6s ease;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        
-        .upload-area {
-            border: 3px dashed #667eea;
-            border-radius: 15px;
+
+        .subtitle {
+            color: var(--text-sub);
+            font-size: 1.1rem;
+        }
+
+        /* --- 主容器 --- */
+        .container {
+            width: 100%;
+            max-width: 960px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* --- 卡片通用样式 --- */
+        .card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 10px 15px -3px rgba(0, 0, 0, 0.03);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        /* --- 上传区域 --- */
+        .upload-section {
             padding: 40px;
             text-align: center;
-            margin-bottom: 30px;
-            transition: all 0.3s ease;
+        }
+
+        .upload-area {
+            border: 2px dashed #D1D5DB;
+            border-radius: 16px;
+            padding: 60px 20px;
             cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #F9FAFB;
             position: relative;
         }
-        
-        .paste-hint {
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            background: #667eea;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.8em;
-            opacity: 0.8;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 0.8; }
-            50% { opacity: 1; }
-            100% { opacity: 0.8; }
-        }
-        
-        .paste-tutorial {
-            background: #e8f4fd;
-            border: 1px solid #667eea;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 15px 0;
-            color: #333;
-            font-size: 0.9em;
-            display: none;
-        }
-        
-        .paste-tutorial.show {
-            display: block;
-            animation: fadeIn 0.5s ease;
-        }
-        
-        kbd {
-            background-color: #f4f4f4;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-            padding: 2px 6px;
-            font-family: monospace;
-            font-size: 0.9em;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        }
-        
-        .word-guide-btn {
-            text-align: center;
-            margin: 20px 0;
-        }
-        
-        .word-guide-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-        
-        .word-guide-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 30px;
-            border-radius: 15px;
-            width: 80%;
-            max-width: 800px;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-        
-        .close-modal {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        
-        .close-modal:hover {
-            color: #000;
-        }
-        
-        .upload-area:hover {
-            border-color: #764ba2;
-            background-color: #f8f9ff;
-        }
-        
+
+        .upload-area:hover,
         .upload-area.dragover {
-            border-color: #764ba2;
-            background-color: #e8f2ff;
-            transform: scale(1.02);
+            border-color: var(--primary);
+            background: #EEF2FF;
+            transform: scale(1.005);
         }
-        
-        .upload-area.paste-active {
-            border-color: #4CAF50;
-            background-color: #e8f5e8;
-            transform: scale(1.02);
-        }
-        
-        .upload-icon {
-            font-size: 3em;
-            color: #667eea;
-            margin-bottom: 15px;
-        }
-        
-        .upload-text {
-            color: #666;
-            font-size: 1.2em;
-            margin-bottom: 10px;
-        }
-        
-        .upload-hint {
-            color: #999;
-            font-size: 0.9em;
-        }
-        
-        .file-input {
-            display: none;
-        }
-        
-        .btn {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 25px;
-            font-size: 1.1em;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin: 10px;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .result-section {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f8f9ff;
-            border-radius: 15px;
-            display: none;
-        }
-        
-        .result-layout {
+
+        .icon-box {
+            width: 64px;
+            height: 64px;
+            background: #E0E7FF;
+            color: var(--primary);
+            border-radius: 50%;
             display: flex;
-            gap: 30px;
-            align-items: flex-start;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 32px;
+            transition: transform 0.3s;
         }
-        
-        .result-left {
-            flex: 1;
-            min-width: 0;
+
+        .upload-area:hover .icon-box {
+            transform: scale(1.1) rotate(10deg);
         }
-        
-        .result-right {
-            flex: 1;
-            min-width: 0;
+
+        .upload-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 8px;
         }
-        
-        .output-section {
-            margin-bottom: 25px;
+
+        .upload-hint {
+            color: var(--text-sub);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
         }
-        
-        .output-header {
+
+        .kbd-tag {
+            background: white;
+            border: 1px solid #D1D5DB;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 0.8rem;
+            font-family: monospace;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* --- 结果展示区 (Grid布局) --- */
+        .result-grid {
+            display: none;
+            /* 默认隐藏 */
+            grid-template-columns: 1fr 1.4fr;
+            gap: 24px;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        .result-grid.show {
+            display: grid;
+        }
+
+        /* 响应式：手机端变单列 */
+        @media (max-width: 768px) {
+            .result-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 0 10px;
+            }
+
+            body {
+                padding-top: 30px;
+            }
+        }
+
+        .preview-card,
+        .code-card {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-header {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-sub);
+            font-weight: 600;
+            margin-bottom: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
         }
-        
-        .result-section.show {
-            display: block;
-            animation: fadeIn 0.5s ease;
+
+        .preview-img-container {
+            background: #F3F4F6;
+            border-radius: 12px;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 150px;
+            border: 1px solid var(--border);
         }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+
+        .preview-img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        
-        .formula-output {
+
+        .math-render-box {
+            margin-top: 24px;
+            padding: 30px 20px;
             background: white;
-            border: 1px solid #e0e6ed;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 15px 0;
-            font-family: 'Courier New', monospace;
-            font-size: 1.1em;
-            line-height: 1.6;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            text-align: center;
+            font-size: 1.3rem;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- 代码块样式 --- */
+        .code-block {
+            background: var(--code-bg);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .code-header {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .lang-badge {
+            font-size: 0.75rem;
+            color: #9CA3AF;
+            font-weight: 500;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #D1D5DB;
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-color: white;
+        }
+
+        .code-content {
+            padding: 16px;
+            color: var(--code-text);
+            font-family: 'Menlo', 'Monaco', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
             word-break: break-all;
         }
-        
-        .formula-label {
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 1.2em;
+
+        .hint-box {
+            background: #EFF6FF;
+            border: 1px solid #BFDBFE;
+            color: #1E40AF;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: flex;
+            gap: 10px;
+            align-items: start;
+            margin-top: auto;
+            /* 推到底部 */
         }
-        
-        .copy-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.9em;
-            float: right;
-            margin-top: -5px;
+
+        /* --- 动画与 Loading --- */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
-        
-        .copy-btn:hover {
-            background: #5a6fd8;
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        
-        .loading {
-            text-align: center;
-            padding: 20px;
-            display: none;
-        }
-        
-        .loading.show {
-            display: block;
-        }
-        
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
-        }
-        
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .error {
-            background: #fee;
-            color: #c33;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
-            border-left: 4px solid #c33;
-        }
-        
-        .success {
-            background: #efe;
-            color: #3c3;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
-            border-left: 4px solid #3c3;
-        }
-        
-        .preview-image {
-            max-width: 100%;
-            max-height: 300px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            margin: 15px 0;
-        }
-        
-        @media (max-width: 600px) {
-            .container {
-                padding: 20px;
+            to {
+                transform: rotate(360deg);
             }
-            
-            h1 {
-                font-size: 2em;
-            }
-            
-            .upload-area {
-                padding: 20px;
-            }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #E5E7EB;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .btn-reset {
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            text-decoration: underline;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        /* --- Toast 提示 --- */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #111827;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+            z-index: 2000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
         }
     </style>
 </head>
+
 <body>
+
+    <header>
+        <h1>📐 MathPix Lite</h1>
+        <p class="subtitle">极简 AI 数学公式识别助手</p>
+    </header>
+
     <div class="container">
-        <h1>📐 数学公式识别器</h1>
-        
-        <div class="upload-area" id="uploadArea">
-            <div class="paste-hint">Ctrl+V 粘贴</div>
-            <div class="upload-icon">📷</div>
-            <div class="upload-text">拖拽图片到这里、点击选择文件或按Ctrl+V粘贴</div>
-            <div class="upload-hint">支持 PNG, JPG, JPEG, GIF, BMP, TIFF 格式 • 按 Ctrl+V 粘贴图片</div>
-            <input type="file" id="fileInput" class="file-input" accept="image/*">
+
+        <div class="card upload-section" id="uploadSection">
+            <div class="upload-area" id="dropZone">
+                <div class="icon-box">📷</div>
+                <h3 class="upload-title">点击上传 或 拖拽图片</h3>
+                <p class="upload-hint">支持截图后直接 <kbd class="kbd-tag">Ctrl + V</kbd> 粘贴</p>
+                <input type="file" id="fileInput" hidden accept="image/*">
+                <button class="btn-reset"
+                    style="text-decoration: none; border: 1px solid #D1D5DB; padding: 8px 20px; border-radius: 8px; font-size: 0.9rem;">
+                    选择文件
+                </button>
+            </div>
         </div>
-        
-        <div style="text-align: center;">
-            <button class="btn" id="selectFileBtn">选择文件</button>
-            <button class="btn" id="clearBtn" style="display: none;">清除结果</button>
-        </div>
-        
-        <div class="paste-tutorial" id="pasteTutorial">
-            <strong>💡 粘贴技巧：</strong><br>
-            1. 截图公式图片（如微信截图、系统截图等）<br>
-            2. 返回此页面，按 <kbd>Ctrl+V</kbd> 或 <kbd>Cmd+V</kbd> 粘贴<br>
-            3. 系统将自动识别并转换公式
-        </div>
-        
-        <div class="word-guide-btn" id="wordGuideBtn">
-            <button class="btn" onclick="showWordGuide()">📖 Word使用指南</button>
-        </div>
-        
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <div>正在识别公式，请稍候...</div>
-        </div>
-        
-        <div class="result-section" id="resultSection">
-            <div class="result-layout">
-                <!-- 左侧：图片预览和渲染效果 -->
-                <div class="result-left">
-                    <div id="previewContainer"></div>
-                    <div class="formula-label">渲染效果：</div>
-                    <div id="renderOutput" style="text-align: center; padding: 20px; background: white; border-radius: 10px; margin: 15px 0;"></div>
+
+        <div class="result-grid" id="resultSection">
+            <div class="card preview-card">
+                <div class="section-header">
+                    <span>原始图片</span>
                 </div>
-                
-                <!-- 右侧：公式输出 -->
-                <div class="result-right">
-                    <div class="output-section">
-                        <div class="output-header">
-                            <div class="formula-label">LaTeX 格式</div>
-                            <button class="copy-btn" onclick="copyToClipboard('latexOutput')">复制</button>
-                        </div>
-                        <div class="formula-output" id="latexOutput"></div>
+                <div class="preview-img-container" id="imagePreview">
+                </div>
+
+                <div class="section-header" style="margin-top: 24px;">
+                    <span>渲染效果</span>
+                    <span
+                        style="font-size: 0.7rem; background:#ECFDF5; color:#059669; padding:2px 6px; border-radius:4px;">MathJax</span>
+                </div>
+                <div class="math-render-box" id="renderOutput">
+                    $$ \dots $$
+                </div>
+            </div>
+
+            <div class="card code-card">
+                <div class="section-header">
+                    <span>识别结果</span>
+                    <button class="btn-reset" onclick="resetApp()">识别下一张</button>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="lang-badge">LaTeX</span>
+                        <button class="copy-btn" onclick="copyText('latexOutput')">复制</button>
                     </div>
-                    
-                    <div class="output-section">
-                        <div class="output-header">
-                            <div class="formula-label">MathML (Word) <span style="color: #e74c3c; font-size: 0.8em;">推荐</span></div>
-                            <button class="copy-btn" onclick="copyToClipboard('wordMathmlOutput')">复制</button>
-                        </div>
-                        <div class="formula-output" id="wordMathmlOutput"></div>
-                        <div style="margin-top: 10px; padding: 8px; background: #e8f4fd; border-radius: 5px; font-size: 0.9em; color: #2c5282;">
-                            💡 <strong>使用提示</strong>：复制后，在Word中先按 <kbd>Alt+=</kbd> 插入公式框，然后粘贴
-                        </div>
+                    <div class="code-content" id="latexOutput"></div>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="lang-badge">Word (MathML)</span>
+                        <button class="copy-btn" onclick="copyText('wordOutput')">复制</button>
+                    </div>
+                    <div class="code-content" id="wordOutput"></div>
+                </div>
+
+                <div class="hint-box">
+                    <span style="font-size: 1.2rem;">💡</span>
+                    <div style="font-size: 0.85rem; line-height: 1.5;">
+                        <strong>Word 粘贴指南：</strong><br>
+                        复制下方的 MathML 代码，在 Word 中先按下 <kbd class="kbd-tag">Alt</kbd> + <kbd class="kbd-tag">=</kbd>
+                        插入公式框，然后粘贴即可。
                     </div>
                 </div>
             </div>
         </div>
-        
-        <div id="messageContainer"></div>
-        
-        <!-- Word使用指南模态框 -->
-        <div id="wordGuideModal" class="word-guide-modal">
-            <div class="word-guide-content">
-                <span class="close-modal" onclick="closeWordGuide()">&times;</span>
-                <h2>📖 Word中插入MathML公式指南</h2>
-                
-                <h3>🎯 支持的Word版本</h3>
-                <ul>
-                    <li>Word 2016 及更高版本</li>
-                    <li>Word 365</li>
-                    <li>Word 2019/2021</li>
-                </ul>
-                
-                <h3>📋 推荐使用方法</h3>
-                <h4>方法1：直接粘贴MathML（推荐）</h4>
-                <ol>
-                    <li>在公式识别器中识别公式</li>
-                    <li>复制"Word兼容MathML"格式</li>
-                    <li>在Word中按以下步骤操作：
-                        <ul>
-                            <li>点击"插入" → "公式" → "插入新公式"</li>
-                            <li>在公式框中粘贴MathML代码</li>
-                            <li>Word会自动转换为可视化公式</li>
-                        </ul>
-                    </li>
-                </ol>
-                
-                <h4>方法2：使用Word方程XML格式</h4>
-                <ol>
-                    <li>复制"Word方程XML"格式</li>
-                    <li>在Word中：
-                        <ul>
-                            <li>按 <kbd>Alt+=</kbd> 插入公式框</li>
-                            <li>粘贴XML代码</li>
-                            <li>Word会自动转换</li>
-                        </ul>
-                    </li>
-                </ol>
-                
-                <h3>⚠️ 常见问题解决</h3>
-                <h4>问题1：粘贴后显示为纯文本</h4>
-                <p><strong>解决方案</strong>：</p>
-                <ul>
-                    <li>确保先插入公式框再粘贴</li>
-                    <li>使用"Word方程XML"格式</li>
-                    <li>检查Word是否支持MathML（需要2016+版本）</li>
-                </ul>
-                
-                <h4>问题2：格式显示不正确</h4>
-                <p><strong>解决方案</strong>：</p>
-                <ul>
-                    <li>使用"Word兼容MathML"格式</li>
-                    <li>确保包含完整的XML声明</li>
-                    <li>尝试不同的粘贴格式</li>
-                </ul>
-                
-                <h3>📊 格式选择建议</h3>
-                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                    <tr style="background-color: #f8f9ff;">
-                        <th style="padding: 10px; border: 1px solid #ddd;">格式类型</th>
-                        <th style="padding: 10px; border: 1px solid #ddd;">适用场景</th>
-                        <th style="padding: 10px; border: 1px solid #ddd;">兼容性</th>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px; border: 1px solid #ddd;">标准MathML</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Web显示</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">高</td>
-                    </tr>
-                    <tr style="background-color: #f8f9ff;">
-                        <td style="padding: 10px; border: 1px solid #ddd;">Word兼容MathML</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Word 2016+</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">高</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Word方程XML</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Word公式框</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">最高</td>
-                    </tr>
-                </table>
-                
-                <h3>💡 最佳实践</h3>
-                <ul>
-                    <li><strong>简单公式</strong>：使用"Word方程XML"格式</li>
-                    <li><strong>复杂公式</strong>：使用"Word兼容MathML"格式</li>
-                    <li><strong>兼容性优先</strong>：总是先插入公式框再粘贴</li>
-                </ul>
-                
-                <h3>🔄 替代方案</h3>
-                <p>如果MathML格式仍有问题，可以考虑：</p>
-                <ul>
-                    <li><strong>LaTeX格式</strong>：Word支持LaTeX公式</li>
-                    <li><strong>图片格式</strong>：将公式保存为图片插入</li>
-                    <li><strong>手动输入</strong>：使用Word公式编辑器</li>
-                </ul>
-            </div>
-        </div>
+
     </div>
 
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script>
-        // MathJax配置
-        window.MathJax = {
-            tex: {
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']]
-            }
-        };
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <h3 style="margin-top: 20px; font-weight: 500; color: #374151;">正在识别公式...</h3>
+        <p style="color: #6B7280; font-size: 0.9rem; margin-top: 5px;">AI 正在分析像素结构</p>
+    </div>
 
-        // DOM元素
-        const uploadArea = document.getElementById('uploadArea');
+    <div class="toast" id="toast">已复制到剪贴板</div>
+
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        // --- 逻辑控制 ---
+        const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
-        const selectFileBtn = document.getElementById('selectFileBtn');
-        const clearBtn = document.getElementById('clearBtn');
         const loading = document.getElementById('loading');
         const resultSection = document.getElementById('resultSection');
-        const messageContainer = document.getElementById('messageContainer');
+        const uploadSection = document.getElementById('uploadSection');
 
-        // 事件监听器
-        uploadArea.addEventListener('click', () => fileInput.click());
-        selectFileBtn.addEventListener('click', () => fileInput.click());
-        clearBtn.addEventListener('click', clearResults);
-
-        // 拖拽上传
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFile(files[0]);
-            }
-        });
-
+        // 点击上传
+        dropZone.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFile(e.target.files[0]);
-            }
+            if (e.target.files.length) handleFile(e.target.files[0]);
         });
 
-        // 监听粘贴事件
+        // 拖拽支持
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+
+        // 粘贴支持
         document.addEventListener('paste', (e) => {
             const items = e.clipboardData.items;
-            let hasImage = false;
-            
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image') !== -1) {
-                    // 显示粘贴视觉反馈
-                    uploadArea.classList.add('paste-active');
-                    setTimeout(() => {
-                        uploadArea.classList.remove('paste-active');
-                    }, 500);
-                    
-                    const file = items[i].getAsFile();
-                    handleFile(file);
-                    showMessage('检测到剪贴板图片，正在处理...', 'success');
-                    hasImage = true;
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    handleFile(item.getAsFile());
+                    showToast('检测到图片，开始处理...');
                     break;
                 }
             }
-            
-            if (!hasImage && e.clipboardData.files.length === 0) {
-                showMessage('剪贴板中没有检测到图片', 'error');
-            }
         });
 
-        // 处理文件
+        // 核心处理函数
         function handleFile(file) {
             if (!file.type.startsWith('image/')) {
-                showMessage('请选择图片文件', 'error');
+                showToast('请上传图片文件');
                 return;
             }
 
+            // 1. 显示 Loading
+            loading.style.display = 'flex';
+
+            // 2. 预览图片
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('imagePreview').innerHTML = `<img src="${e.target.result}" class="preview-img">`;
+            };
+            reader.readAsDataURL(file);
+
+            // 3. 调用后端 API
             const formData = new FormData();
             formData.append('file', file);
 
-            // 显示加载状态
-            loading.classList.add('show');
-            resultSection.classList.remove('show');
-            messageContainer.innerHTML = '';
-
-            // 上传文件
             fetch('/upload', {
                 method: 'POST',
                 body: formData
             })
             .then(response => response.json())
             .then(data => {
-                loading.classList.remove('show');
-                
                 if (data.success) {
-                    displayResults(data, file);
-                    showMessage('公式识别成功！', 'success');
+                    displayResult({
+                        latex: data.latex,
+                        mathml: data.mathml_word_compatible || data.mathml
+                    });
                 } else {
-                    showMessage(data.error || '识别失败', 'error');
+                    showToast(data.error || '识别失败');
                 }
+                loading.style.display = 'none';
             })
             .catch(error => {
-                loading.classList.remove('show');
-                showMessage('上传失败: ' + error.message, 'error');
+                showToast('上传失败: ' + error.message);
+                loading.style.display = 'none';
             });
         }
 
-        // 显示结果
-        function displayResults(data, file) {
-            // 显示图片预览
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                document.getElementById('previewContainer').innerHTML = 
-                    `<img src="${e.target.result}" class="preview-image" alt="上传的图片">`;
-            };
-            reader.readAsDataURL(file);
-
-            // 显示公式（只保留LaTeX和Word MathML）
+        function displayResult(data) {
+            // 填充文本
             document.getElementById('latexOutput').textContent = data.latex;
-            document.getElementById('wordMathmlOutput').textContent = data.mathml_word_compatible || data.mathml;
-            
-            // 渲染LaTeX
-            const renderDiv = document.getElementById('renderOutput');
-            renderDiv.innerHTML = data.latex_display;
-            
-            // 重新渲染MathJax
+            document.getElementById('wordOutput').textContent = data.mathml;
+
+            // 渲染 MathJax
+            const renderBox = document.getElementById('renderOutput');
+            renderBox.innerHTML = `$$${data.latex}$$`;
             if (window.MathJax) {
-                MathJax.typesetPromise([renderDiv]).then(() => {
-                    console.log('MathJax渲染完成');
-                });
+                MathJax.typesetPromise([renderBox]);
             }
 
-            resultSection.classList.add('show');
-            clearBtn.style.display = 'inline-block';
+            // 切换视图
+            uploadSection.style.display = 'none'; // 隐藏上传框，让界面更清爽
+            resultSection.classList.add('show');  // 显示结果
         }
 
-        // 清除结果
-        function clearResults() {
+        function resetApp() {
             resultSection.classList.remove('show');
-            clearBtn.style.display = 'none';
+            uploadSection.style.display = 'block';
             fileInput.value = '';
-            messageContainer.innerHTML = '';
+            // 清空预览
+            document.getElementById('imagePreview').innerHTML = '';
         }
 
-        // 复制到剪贴板
-        function copyToClipboard(elementId) {
-            const element = document.getElementById(elementId);
-            const text = element.textContent;
-            
-            // 清理文本，移除可能的$$符号
-            let cleanedText = text;
-            if (elementId === 'latexOutput') {
-                // 对于LaTeX格式，确保没有多余的$$符号
-                cleanedText = text.replace(/^\$\$\s*/, '').replace(/\s*\$\$$/, '');
-            }
-            
-            navigator.clipboard.writeText(cleanedText).then(() => {
-                let formatName = elementId === 'latexOutput' ? 'LaTeX格式' : 'MathML(Word)格式';
-                showMessage(`${formatName}已复制到剪贴板`, 'success');
-            }).catch(() => {
-                showMessage('复制失败', 'error');
+        // 工具函数
+        function copyText(id) {
+            const text = document.getElementById(id).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('复制成功');
             });
         }
 
-        // 显示消息
-        function showMessage(message, type) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = type;
-            messageDiv.textContent = message;
-            messageContainer.innerHTML = '';
-            messageContainer.appendChild(messageDiv);
-            
-            setTimeout(() => {
-                messageDiv.remove();
-            }, 5000);
-        }
-
-        // 首次访问显示粘贴教程
-        function showFirstTimeTutorial() {
-            const hasSeenTutorial = localStorage.getItem('hasSeenPasteTutorial');
-            if (!hasSeenTutorial) {
-                setTimeout(() => {
-                    document.getElementById('pasteTutorial').classList.add('show');
-                    localStorage.setItem('hasSeenPasteTutorial', 'true');
-                    
-                    // 5秒后自动隐藏教程
-                    setTimeout(() => {
-                        document.getElementById('pasteTutorial').classList.remove('show');
-                    }, 5000);
-                }, 1000);
-            }
-        }
-
-        // 页面加载完成后显示教程
-        document.addEventListener('DOMContentLoaded', showFirstTimeTutorial);
-
-        // Word指南模态框控制
-        function showWordGuide() {
-            document.getElementById('wordGuideModal').style.display = 'block';
-        }
-
-        function closeWordGuide() {
-            document.getElementById('wordGuideModal').style.display = 'none';
-        }
-
-        // 点击模态框外部关闭
-        window.onclick = function(event) {
-            const modal = document.getElementById('wordGuideModal');
-            if (event.target == modal) {
-                modal.style.display = 'none';
-            }
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
         }
     </script>
 </body>
+
 </html>
