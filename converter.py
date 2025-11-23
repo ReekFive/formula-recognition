@@ -3,8 +3,7 @@ from typing import Optional
 import sympy as sp
 from sympy import latex, mathml
 import logging
-from word_converter import WordMathMLConverter
-from advanced_word_converter import AdvancedWordMathMLConverter
+from final_converter import WordMathMLConverter
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -16,8 +15,7 @@ class FormulaConverter:
     
     def __init__(self):
         """初始化转换器"""
-        self.word_converter = WordMathMLConverter()
-        self.advanced_word_converter = AdvancedWordMathMLConverter()
+        self.advanced_word_converter = WordMathMLConverter()
     
     def latex_to_mathml(self, latex_formula: str) -> Optional[str]:
         """
@@ -168,7 +166,7 @@ class FormulaConverter:
             格式化后的结果字典
         """
         # 生成高级Word兼容MathML（更准确的格式）
-        advanced_word_mathml = self.advanced_word_converter.convert_latex_to_word_mathml(latex_formula) if latex_formula else ""
+        advanced_word_mathml = self.advanced_word_converter.convert(latex_formula) if latex_formula else ""
         
         return {
             'latex': latex_formula,

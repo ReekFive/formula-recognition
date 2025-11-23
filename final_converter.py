@@ -41,7 +41,7 @@ class WordMathMLConverter:
             latex = self._preprocess(latex)
             
             # 使用递归下降解析器
-            result = self._parse_formula(latex)
+            result, _ = self._parse_formula(latex)
             
             # 构建MathML
             mathml_lines = ['<math xmlns="http://www.w3.org/1998/Math/MathML">']
@@ -52,6 +52,8 @@ class WordMathMLConverter:
             
         except Exception as e:
             print(f"转换失败: {e}")
+            import traceback
+            traceback.print_exc()
             return self._create_basic_mathml(latex)
     
     def _preprocess(self, latex: str) -> str:
@@ -68,10 +70,10 @@ class WordMathMLConverter:
         
         return latex
     
-    def _parse_formula(self, formula: str) -> list:
-        """解析公式"""
+    def _parse_formula(self, formula: str, start_pos: int = 0) -> tuple:
+        """解析公式，返回(结果列表, 新位置)"""
         result = []
-        i = 0
+        i = start_pos
         
         while i < len(formula):
             char = formula[i]
@@ -84,8 +86,14 @@ class WordMathMLConverter:
             # LaTeX命令
             if char == '\\':
                 cmd, length = self._parse_command(formula, i)
-                result.extend(self._handle_command(cmd, formula, i + length))
+                cmd_result = self._handle_command(cmd, formula, i + length)
+                result.extend(cmd_result)
                 i += length
+                # 对于\sqrt等命令，需要跳过花括号内容
+                if cmd in ['\\sqrt', '\\frac'] and i < len(formula) and formula[i] == '{':
+                    _, brace_length = self._parse_braced_content(formula, i)
+                    i += brace_length
+                continue
             
             # 上标
             elif char == '^':
@@ -107,10 +115,12 @@ class WordMathMLConverter:
                     result.append(f'      {base}')
                     result.append('    </mrow>')
                     result.append('    <mrow>')
-                    result.extend(self._parse_formula(superscript))
+                    sup_result, _ = self._parse_formula(superscript)
+                    result.extend(sup_result)
                     result.append('    </mrow>')
                     result.append('  </msup>')
                 i += 1
+                continue
             
             # 下标
             elif char == '_':
@@ -118,24 +128,60 @@ class WordMathMLConverter:
                     # 获取底数
                     base = result.pop()
                     
-                    # 解析下标内容
-                    if i + 1 < len(formula) and formula[i + 1] == '{':
-                        subscript, length = self._parse_braced_content(formula, i + 1)
-                        i += length
-                    else:
-                        subscript = formula[i + 1] if i + 1 < len(formula) else ''
-                        i += 1
+                    # 检查是否同时有上标（用于msubsup）
+                    has_superscript = False
+                    temp_i = i + 1
                     
-                    # 生成下标MathML（严格按照Word格式）
-                    result.append('   <msub>')
-                    result.append('     <mrow>')
-                    result.append(f'       {base}')
-                    result.append('     </mrow>')
-                    result.append('     <mrow>')
-                    result.extend(self._parse_formula(subscript))
-                    result.append('     </mrow>')
-                    result.append('   </msub>')
-                i += 1
+                    # 解析下标内容
+                    if temp_i < len(formula) and formula[temp_i] == '{':
+                        subscript, sub_length = self._parse_braced_content(formula, temp_i)
+                        temp_i += sub_length
+                    else:
+                        subscript = formula[temp_i] if temp_i < len(formula) else ''
+                        temp_i += 1
+                    
+                    # 检查下标后是否紧跟上标
+                    if temp_i < len(formula) and formula[temp_i] == '^':
+                        has_superscript = True
+                        temp_i += 1
+                        if temp_i < len(formula) and formula[temp_i] == '{':
+                            superscript, sup_length = self._parse_braced_content(formula, temp_i)
+                            temp_i += sup_length
+                        else:
+                            superscript = formula[temp_i] if temp_i < len(formula) else ''
+                            temp_i += 1
+                        
+                        # 生成msubsup
+                        result.append('  <msubsup>')
+                        result.append('    <mrow>')
+                        result.append(f'      {base}')
+                        result.append('    </mrow>')
+                        result.append('    <mrow>')
+                        sub_result, _ = self._parse_formula(subscript)
+                        result.extend(sub_result)
+                        result.append('    </mrow>')
+                        result.append('    <mrow>')
+                        sup_result, _ = self._parse_formula(superscript)
+                        result.extend(sup_result)
+                        result.append('    </mrow>')
+                        result.append('  </msubsup>')
+                        i = temp_i
+                        continue
+                    else:
+                        # 只有下标
+                        result.append('   <msub>')
+                        result.append('     <mrow>')
+                        result.append(f'       {base}')
+                        result.append('     </mrow>')
+                        result.append('     <mrow>')
+                        sub_result, _ = self._parse_formula(subscript)
+                        result.extend(sub_result)
+                        result.append('     </mrow>')
+                        result.append('   </msub>')
+                        i = temp_i
+                        continue
+                else:
+                    i += 1
             
             # 数学运算符
             elif char in '+-=<>≠≤≥×÷·()[]|,':
@@ -169,12 +215,16 @@ class WordMathMLConverter:
                 for c in var:
                     result.append(f'  <mi>{c}</mi>')
             
+            # 其他字符（跳过花括号）
+            elif char in '{}':
+                i += 1
+            
             # 其他字符
             else:
                 result.append(f'  <mi>{char}</mi>')
                 i += 1
         
-        return result
+        return result, i
     
     def _parse_command(self, formula: str, start: int) -> tuple:
         """解析LaTeX命令"""
@@ -228,10 +278,12 @@ class WordMathMLConverter:
             
             result = ['  <mfrac>']
             result.append('    <mrow>')
-            result.extend(self._parse_formula(numerator))
+            num_result, _ = self._parse_formula(numerator)
+            result.extend(num_result)
             result.append('    </mrow>')
             result.append('    <mrow>')
-            result.extend(self._parse_formula(denominator))
+            den_result, _ = self._parse_formula(denominator)
+            result.extend(den_result)
             result.append('    </mrow>')
             result.append('  </mfrac>')
             
@@ -243,7 +295,8 @@ class WordMathMLConverter:
             
             result = ['  <msqrt>']
             result.append('    <mrow>')
-            result.extend(self._parse_formula(content))
+            content_result, _ = self._parse_formula(content)
+            result.extend(content_result)
             result.append('    </mrow>')
             result.append('  </msqrt>')
             
@@ -259,7 +312,8 @@ class WordMathMLConverter:
                 if start + 1 < len(formula) and formula[start + 1] == '{':
                     subscript, length = self._parse_braced_content(formula, start + 1)
                     result.append('    <mrow>')
-                    result.extend(self._parse_formula(subscript))
+                    sub_result, _ = self._parse_formula(subscript)
+                    result.extend(sub_result)
                     result.append('    </mrow>')
                 else:
                     result.append('    <mrow/>')
@@ -280,7 +334,8 @@ class WordMathMLConverter:
                 if next_pos + 1 < len(formula) and formula[next_pos + 1] == '{':
                     superscript, length = self._parse_braced_content(formula, next_pos + 1)
                     result.append('    <mrow>')
-                    result.extend(self._parse_formula(superscript))
+                    sup_result, _ = self._parse_formula(superscript)
+                    result.extend(sup_result)
                     result.append('    </mrow>')
                 else:
                     result.append('    <mrow/>')
