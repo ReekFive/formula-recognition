@@ -42,6 +42,12 @@ uploads/
 test_formula_*.png
 *.processed.png
 
+# Test files (保留核心测试文件，忽略临时测试文件)
+test_*_old.py
+test_*_backup.py
+temp_*.py
+debug_*.py
+
 # macOS
 .DS_Store
 .AppleDouble
