@@ -14,6 +14,10 @@ class WordMathMLConverter:
             'sigma': 'σ', 'tau': 'τ', 'upsilon': 'υ', 'phi': 'φ',
             'chi': 'χ', 'psi': 'ψ', 'omega': 'ω'
         }
+        # 常用运算符映射
+        self.operator_map = {
+            'cdot': '⋅'
+        }
     
     def convert(self, formula):
         """转换LaTeX公式为MathML"""
@@ -65,11 +69,12 @@ class WordMathMLConverter:
                 if i < len(expr) and expr[i] == '_':
                     subscript, new_i = self._parse_subscript(expr, i + 1)
                     if subscript:
-                        sub_tag = self._get_subscript_tag(subscript)
+                        subscript_norm = self._normalize_identifier(subscript)
+                        sub_tag = self._get_subscript_tag(subscript_norm)
                         result.extend([
                             '  <msub>',
                             f'    <mi>{var}</mi>',
-                            f'    <{sub_tag}>{subscript}</{sub_tag}>',
+                            f'    <{sub_tag}>{subscript_norm}</{sub_tag}>',
                             '  </msub>'
                         ])
                         i = new_i
@@ -130,17 +135,22 @@ class WordMathMLConverter:
             if i < len(expr) and expr[i] == '_':
                 subscript, new_i = self._parse_subscript(expr, i + 1)
                 if subscript:
-                    sub_tag = self._get_subscript_tag(subscript)
+                    subscript_norm = self._normalize_identifier(subscript)
+                    sub_tag = self._get_subscript_tag(subscript_norm)
                     return [
                         '  <msub>',
                         f'    <mi>{self.greek_letters[cmd]}</mi>',
-                        f'    <{sub_tag}>{subscript}</{sub_tag}>',
+                        f'    <{sub_tag}>{subscript_norm}</{sub_tag}>',
                         '  </msub>'
                     ], new_i
 
             return [f'  <mi>{self.greek_letters[cmd]}</mi>'], i
-        
-        # 其他命令
+
+        # 常用运算符
+        elif cmd in self.operator_map:
+            return [f'  <mo>{self.operator_map[cmd]}</mo>'], i
+
+        # 其他命令当作标识符
         else:
             return [f'  <mi>{cmd}</mi>'], i
     
@@ -328,6 +338,17 @@ class WordMathMLConverter:
             return 'mn'
         else:
             return 'mi'
+
+    def _normalize_identifier(self, text):
+        """规范化标识符：移除字母序列中的空格"""
+        if not text:
+            return ''
+        stripped = text.strip()
+        # 如果只包含字母和空格，则去除空格
+        import re
+        if re.fullmatch(r'[A-Za-z\s]+', stripped or ''):
+            return ''.join(stripped.split())
+        return stripped
 
     def _is_single_element(self, lines):
         """检查MathML行列表是否表示单个元素"""
