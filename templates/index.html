@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MathPix Zen</title>
+    <title>MathFormula Lite</title>
     <style>
         :root {
             --primary: #111;
@@ -253,8 +253,7 @@
 
     <div class="app-wrapper">
         <div class="header">
-            <div class="brand">MathPix <span style="color:#BBB; font-weight:400;">Lite</span></div>
-            <div class="status" id="statusText">Ready</div>
+            <div class="brand">MathFormula <span style="color:#BBB; font-weight:400;">Lite</span></div>
         </div>
 
         <div class="loader" id="loader"></div>
@@ -290,7 +289,6 @@
         const fileInput = document.getElementById('fileInput');
         const resultView = document.getElementById('resultView');
         const loader = document.getElementById('loader');
-        const statusText = document.getElementById('statusText');
 
         // 全局变量存储数据
         let formulaData = {
@@ -340,7 +338,6 @@
             // UI 状态更新
             dropZone.style.display = 'none';
             loader.style.display = 'block';
-            statusText.textContent = 'Processing...';
 
             // 调用后端 API
             const formData = new FormData();
@@ -367,7 +364,6 @@
         }
 
         function showResult(latex, mathml) {
-            statusText.textContent = 'Done';
             resultView.style.display = 'block';
 
             // 存储数据到全局变量
@@ -383,7 +379,6 @@
         function resetApp() {
             resultView.style.display = 'none';
             dropZone.style.display = 'flex';
-            statusText.textContent = 'Ready';
             fileInput.value = '';
             formulaData = { latex: '', mathml: '' };
         }
