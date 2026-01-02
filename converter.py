@@ -1,7 +1,4 @@
-from latex2mathml.converter import convert as latex_to_mathml
 from typing import Optional
-import sympy as sp
-from sympy import latex, mathml
 import logging
 from final_converter import WordMathMLConverter
 
@@ -16,6 +13,29 @@ class FormulaConverter:
     def __init__(self):
         """初始化转换器"""
         self.advanced_word_converter = WordMathMLConverter()
+        self._latex2mathml_available = False
+        self._sympy_latex_available = False
+        
+        # 尝试导入 latex2mathml
+        try:
+            from latex2mathml.converter import convert as latex_to_mathml
+            self._latex_to_mathml = latex_to_mathml
+            self._latex2mathml_available = True
+        except ImportError:
+            logger.warning("latex2mathml 不可用，将仅使用自定义转换器")
+            self._latex_to_mathml = None
+        
+        # 尝试导入 sympy.parsing.latex
+        try:
+            from sympy.parsing.latex import parse_latex
+            from sympy import mathml
+            self._parse_latex = parse_latex
+            self._sympy_mathml = mathml
+            self._sympy_latex_available = True
+        except ImportError:
+            logger.warning("sympy.parsing.latex 不可用")
+            self._parse_latex = None
+            self._sympy_mathml = None
     
     def latex_to_mathml(self, latex_formula: str) -> Optional[str]:
         """
@@ -31,48 +51,34 @@ class FormulaConverter:
             logger.error("无效的LaTeX公式")
             return None
         
-        try:
-            # 使用latex2mathml库转换
-            mathml_result = latex_to_mathml(latex_formula)
-            logger.info("LaTeX转MathML成功")
-            return mathml_result
-            
-        except Exception as e:
-            logger.error(f"LaTeX转MathML失败: {e}")
-            
-            # 备用方案：使用SymPy
+        # 首先尝试使用 latex2mathml 库
+        if self._latex2mathml_available:
             try:
-                # 尝试用SymPy解析和转换
-                sympy_expr = self._latex_to_sympy(latex_formula)
+                mathml_result = self._latex_to_mathml(latex_formula)
+                logger.info("LaTeX转MathML成功 (latex2mathml)")
+                return mathml_result
+            except Exception as e:
+                logger.warning(f"latex2mathml 转换失败: {e}")
+        
+        # 备用方案：使用 SymPy 的 LaTeX 解析器
+        if self._sympy_latex_available:
+            try:
+                # 使用正确的 LaTeX 解析函数
+                sympy_expr = self._parse_latex(latex_formula)
                 if sympy_expr:
-                    mathml_result = mathml(sympy_expr)
-                    logger.info("使用SymPy转换成功")
+                    mathml_result = self._sympy_mathml(sympy_expr)
+                    logger.info("使用 SymPy parse_latex 转换成功")
                     return mathml_result
             except Exception as sympy_error:
-                logger.error(f"SymPy转换也失败: {sympy_error}")
-            
-            return None
-    
-    def _latex_to_sympy(self, latex_formula: str) -> Optional[sp.Basic]:
-        """
-        将LaTeX公式转换为SymPy表达式
+                logger.warning(f"SymPy 转换也失败: {sympy_error}")
         
-        Args:
-            latex_formula: LaTeX公式字符串
-            
-        Returns:
-            SymPy表达式，失败返回None
-        """
+        # 最终备用：使用自定义转换器
         try:
-            # 清理LaTeX公式
-            cleaned_latex = self._clean_latex(latex_formula)
-            
-            # 使用SymPy解析LaTeX
-            expr = sp.sympify(cleaned_latex)
-            return expr
-            
+            result = self.advanced_word_converter.convert(latex_formula)
+            logger.info("使用自定义转换器成功")
+            return result
         except Exception as e:
-            logger.error(f"SymPy解析失败: {e}")
+            logger.error(f"所有转换方法都失败: {e}")
             return None
     
     def _clean_latex(self, latex_formula: str) -> str:
@@ -129,7 +135,6 @@ class FormulaConverter:
         
         # Word MathML验证：检查必要的XML声明和命名空间
         required_elements = [
-            '<?xml version="1.0"',
             'xmlns="http://www.w3.org/1998/Math/MathML"',
             '<math',
             '</math>'
@@ -166,11 +171,18 @@ class FormulaConverter:
             格式化后的结果字典
         """
         # 生成高级Word兼容MathML（更准确的格式）
-        advanced_word_mathml = self.advanced_word_converter.convert(latex_formula) if latex_formula else ""
+        advanced_word_mathml = ""
+        if latex_formula:
+            try:
+                advanced_word_mathml = self.advanced_word_converter.convert(latex_formula)
+            except Exception as e:
+                logger.warning(f"高级转换失败: {e}")
         
         return {
             'latex': latex_formula,
+            'mathml': mathml_formula or advanced_word_mathml,
             'mathml_word_compatible': advanced_word_mathml or mathml_formula,
+            'mathml_valid': self.validate_mathml(advanced_word_mathml or mathml_formula),
             'latex_display': f"$${latex_formula}$$" if latex_formula and not (latex_formula.startswith('$$') and latex_formula.endswith('$$')) else latex_formula if latex_formula else "",
         }
     
@@ -206,7 +218,9 @@ def test_converter():
         r"\frac{a+b}{c}",
         r"\sum_{i=1}^{n} x_i",
         r"\int_{0}^{\infty} e^{-x} dx",
-        r"\alpha + \beta = \gamma"
+        r"\alpha + \beta = \gamma",
+        r"x^2 + y^2 = z^2",
+        r"\sqrt{x^2 + y^2}",
     ]
     
     print("正在测试公式转换器...")
@@ -216,8 +230,9 @@ def test_converter():
         result = converter.convert_formula(formula)
         
         print(f"LaTeX: {result['latex']}")
-        print(f"MathML: {result['mathml'][:100]}...")
-        print(f"MathML有效: {result['mathml_valid']}")
+        mathml = result.get('mathml_word_compatible', '') or result.get('mathml', '')
+        print(f"MathML: {mathml[:100]}..." if len(mathml) > 100 else f"MathML: {mathml}")
+        print(f"MathML有效: {result.get('mathml_valid', False)}")
 
 
 if __name__ == "__main__":

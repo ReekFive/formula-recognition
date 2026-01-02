@@ -4,18 +4,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MathFormula Lite</title>
+    <meta name="description" content="数学公式识别工具 - 将公式图片转换为LaTeX和Word兼容的MathML格式">
+    <meta name="keywords" content="公式识别, LaTeX, MathML, OCR, 数学公式">
+    <title>MathFormula Lite - 公式识别器</title>
     <style>
         :root {
             --primary: #111;
-            /* 极简黑 */
             --accent: #2563EB;
-            /* 交互蓝 */
             --bg: #FAFAFA;
             --surface: #FFFFFF;
             --border: #E5E5E5;
             --text: #333;
             --text-light: #888;
+            --success: #10B981;
+            --error: #EF4444;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
@@ -25,13 +31,12 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            /* 垂直居中 */
             min-height: 100vh;
             margin: 0;
             padding: 20px;
         }
 
-        /* --- 核心容器：像一张A4纸居中 --- */
+        /* --- 核心容器：响应式设计 --- */
         .app-wrapper {
             width: 100%;
             max-width: 720px;
@@ -49,6 +54,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .brand {
@@ -57,16 +64,32 @@
             letter-spacing: -0.5px;
         }
 
-        .status {
-            font-size: 1rem;
-            color: var(--text-light);
+        .header-actions {
+            display: flex;
+            gap: 10px;
         }
 
-        /* --- 上传区：极致隐形 --- */
+        .history-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-light);
+            font-size: 0.9rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-btn:hover {
+            border-color: var(--text);
+            color: var(--text);
+        }
+
+        /* --- 上传区 --- */
         .upload-zone {
             border: 2px dashed #DDD;
             border-radius: 10px;
-            height: 260px;
+            min-height: 260px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -74,6 +97,7 @@
             cursor: pointer;
             transition: border-color 0.2s, background 0.2s;
             text-align: center;
+            padding: 30px;
         }
 
         .upload-zone:hover {
@@ -81,10 +105,21 @@
             background: #fafafa;
         }
 
+        .upload-zone.drag-over {
+            border-color: var(--accent);
+            background: #f0f7ff;
+        }
+
         .upload-zone p {
             margin: 0;
             color: var(--text-light);
             font-size: 1.1rem;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
         }
 
         .kbd {
@@ -95,16 +130,21 @@
             font-family: monospace;
         }
 
+        .file-hint {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
         /* --- 结果展示 --- */
         .result-view {
             display: none;
             animation: fadeUp 0.4s ease;
         }
 
-        /* 渲染结果：最大化展示 */
         .math-display {
-            font-size: 2rem;
-            padding: 30px 0;
+            font-size: 1.8rem;
+            padding: 30px 20px;
             text-align: center;
             border-bottom: 1px solid var(--border);
             margin-bottom: 30px;
@@ -112,9 +152,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow-x: auto;
         }
 
-        /* 极简的复制按钮区域 */
         .code-group {
             margin-bottom: 20px;
             display: flex;
@@ -155,7 +195,12 @@
             background: #F8F8F8;
         }
 
-        /* 底部工具栏 */
+        .action-btn.copied {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+
         .footer-tools {
             margin-top: 40px;
             display: flex;
@@ -177,35 +222,32 @@
             color: var(--primary);
         }
 
-        /* Loading */
-        .loader {
+        /* --- Loading 状态 --- */
+        .loader-container {
             display: none;
-            width: 100%;
-            height: 2px;
-            background: #eee;
-            position: relative;
-            overflow: hidden;
-            margin-bottom: 20px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 260px;
+            gap: 20px;
         }
 
-        .loader::after {
-            content: '';
-            position: absolute;
-            left: -50%;
-            height: 100%;
-            width: 50%;
-            background: var(--text);
-            animation: load 1s infinite ease-in-out;
+        .loader-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #eee;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
 
-        @keyframes load {
-            0% {
-                left: -50%;
-            }
+        .loader-text {
+            color: var(--text-light);
+            font-size: 1rem;
+        }
 
-            100% {
-                left: 100%;
-            }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         @keyframes fadeUp {
@@ -213,14 +255,13 @@
                 opacity: 0;
                 transform: translateY(10px);
             }
-
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
         }
 
-        /* Toast */
+        /* --- Toast --- */
         .toast {
             position: fixed;
             bottom: 30px;
@@ -234,10 +275,196 @@
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
+            z-index: 1000;
         }
 
         .toast.active {
             opacity: 1;
+        }
+
+        .toast.error {
+            background: var(--error);
+        }
+
+        /* --- 历史记录面板 --- */
+        .history-panel {
+            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 350px;
+            height: 100vh;
+            background: var(--surface);
+            box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+            z-index: 1000;
+            overflow-y: auto;
+            animation: slideIn 0.3s ease;
+        }
+
+        .history-panel.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: var(--surface);
+        }
+
+        .history-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .close-history {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+
+        .history-list {
+            padding: 10px;
+        }
+
+        .history-item {
+            padding: 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover {
+            background: #f5f5f5;
+        }
+
+        .history-item-formula {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .history-item-time {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            margin-top: 5px;
+        }
+
+        .history-empty {
+            text-align: center;
+            color: var(--text-light);
+            padding: 40px 20px;
+        }
+
+        .clear-history {
+            width: 100%;
+            padding: 12px;
+            background: none;
+            border: 1px solid var(--error);
+            color: var(--error);
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .clear-history:hover {
+            background: var(--error);
+            color: white;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.3);
+            z-index: 999;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        /* --- 响应式设计 --- */
+        @media (max-width: 768px) {
+            .app-wrapper {
+                padding: 25px;
+                max-width: 100%;
+                border-radius: 12px;
+            }
+
+            .header {
+                margin-bottom: 25px;
+            }
+
+            .brand {
+                font-size: 1.2rem;
+            }
+
+            .upload-zone {
+                min-height: 200px;
+                padding: 20px;
+            }
+
+            .upload-zone p {
+                font-size: 1rem;
+            }
+
+            .math-display {
+                font-size: 1.4rem;
+                padding: 20px 15px;
+            }
+
+            .code-group {
+                padding: 12px 15px;
+            }
+
+            .history-panel {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+
+            .app-wrapper {
+                padding: 20px;
+            }
+
+            .upload-icon {
+                font-size: 2rem;
+            }
+
+            .code-group {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+
+            .action-btn {
+                width: 100%;
+                text-align: center;
+            }
         }
     </style>
     <script>
@@ -254,41 +481,67 @@
     <div class="app-wrapper">
         <div class="header">
             <div class="brand">MathFormula <span style="color:#BBB; font-weight:400;">Lite</span></div>
+            <div class="header-actions">
+                <button class="history-btn" onclick="toggleHistory()">📋 历史</button>
+            </div>
         </div>
 
-        <div class="loader" id="loader"></div>
+        <!-- 加载状态 -->
+        <div class="loader-container" id="loaderContainer">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">正在识别公式...</div>
+        </div>
 
+        <!-- 上传区 -->
         <div class="upload-zone" id="dropZone">
             <input type="file" id="fileInput" hidden accept="image/*">
-            <p>Paste image <span class="kbd">Ctrl+V</span> or Drop here</p>
+            <div class="upload-icon">📷</div>
+            <p>粘贴图片 <span class="kbd" id="shortcutHint">Ctrl+V</span> 或拖放到此处</p>
+            <p class="file-hint">支持 PNG、JPG、GIF、BMP、TIFF、WebP，最大 16MB</p>
         </div>
 
+        <!-- 结果展示 -->
         <div class="result-view" id="resultView">
-            <div class="math-display" id="renderOutput">$$ E = mc^2 $$</div>
+            <div class="math-display" id="renderOutput"></div>
 
             <div class="code-group">
                 <span class="code-label">LaTeX</span>
-                <button class="action-btn" onclick="copyData('latex')">Copy</button>
+                <button class="action-btn" id="copyLatexBtn" onclick="copyData('latex')">复制</button>
             </div>
 
             <div class="code-group">
                 <span class="code-label">Word (MathML)</span>
-                <button class="action-btn" onclick="copyData('mathml')">Copy</button>
+                <button class="action-btn" id="copyMathmlBtn" onclick="copyData('mathml')">复制</button>
             </div>
 
             <div class="footer-tools">
-                <a class="reset-link" onclick="resetApp()">Scan Another</a>
+                <a class="reset-link" onclick="resetApp()">🔄 扫描新公式</a>
             </div>
         </div>
     </div>
 
-    <div class="toast" id="toast">Copied to clipboard</div>
+    <!-- 历史记录面板 -->
+    <div class="overlay" id="overlay" onclick="toggleHistory()"></div>
+    <div class="history-panel" id="historyPanel">
+        <div class="history-header">
+            <h3>识别历史</h3>
+            <button class="close-history" onclick="toggleHistory()">×</button>
+        </div>
+        <div class="history-list" id="historyList"></div>
+    </div>
+
+    <div class="toast" id="toast">已复制到剪贴板</div>
 
     <script>
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const resultView = document.getElementById('resultView');
-        const loader = document.getElementById('loader');
+        const loaderContainer = document.getElementById('loaderContainer');
+        const shortcutHint = document.getElementById('shortcutHint');
+
+        // 检测操作系统，设置正确的快捷键提示
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        shortcutHint.textContent = isMac ? 'Cmd+V' : 'Ctrl+V';
 
         // 全局变量存储数据
         let formulaData = {
@@ -296,24 +549,114 @@
             mathml: ''
         };
 
+        // HTML转义函数（防止XSS）
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 历史记录管理
+        const HISTORY_KEY = 'formula_history';
+        const MAX_HISTORY = 20;
+
+        function getHistory() {
+            try {
+                return JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+            } catch {
+                return [];
+            }
+        }
+
+        function saveToHistory(latex, mathml) {
+            const history = getHistory();
+            const item = {
+                latex,
+                mathml,
+                timestamp: Date.now()
+            };
+            // 避免重复
+            const exists = history.findIndex(h => h.latex === latex);
+            if (exists !== -1) {
+                history.splice(exists, 1);
+            }
+            history.unshift(item);
+            if (history.length > MAX_HISTORY) {
+                history.pop();
+            }
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        }
+
+        function clearHistory() {
+            if (confirm('确定要清空所有历史记录吗？')) {
+                localStorage.removeItem(HISTORY_KEY);
+                renderHistory();
+                showToast('历史记录已清空');
+            }
+        }
+
+        function renderHistory() {
+            const historyList = document.getElementById('historyList');
+            const history = getHistory();
+
+            if (history.length === 0) {
+                historyList.innerHTML = '<div class="history-empty">暂无历史记录</div>';
+                return;
+            }
+
+            let html = '';
+            history.forEach((item, index) => {
+                const date = new Date(item.timestamp);
+                const timeStr = date.toLocaleString('zh-CN', { 
+                    month: 'numeric', 
+                    day: 'numeric',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                html += `
+                    <div class="history-item" onclick="loadFromHistory(${index})">
+                        <div class="history-item-formula">${escapeHtml(item.latex)}</div>
+                        <div class="history-item-time">${timeStr}</div>
+                    </div>
+                `;
+            });
+            html += '<button class="clear-history" onclick="clearHistory()">清空历史</button>';
+            historyList.innerHTML = html;
+        }
+
+        function loadFromHistory(index) {
+            const history = getHistory();
+            if (history[index]) {
+                showResult(history[index].latex, history[index].mathml);
+                toggleHistory();
+            }
+        }
+
+        function toggleHistory() {
+            const panel = document.getElementById('historyPanel');
+            const overlay = document.getElementById('overlay');
+            panel.classList.toggle('active');
+            overlay.classList.toggle('active');
+            if (panel.classList.contains('active')) {
+                renderHistory();
+            }
+        }
+
         // --- 事件监听 ---
         dropZone.addEventListener('click', () => fileInput.click());
 
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
-            dropZone.style.borderColor = '#333';
-            dropZone.style.background = '#f5f5f5';
+            dropZone.classList.add('drag-over');
         });
 
         dropZone.addEventListener('dragleave', () => {
-            dropZone.style.borderColor = '#DDD';
-            dropZone.style.background = 'transparent';
+            dropZone.classList.remove('drag-over');
         });
 
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
-            dropZone.style.borderColor = '#DDD';
-            dropZone.style.background = 'transparent';
+            dropZone.classList.remove('drag-over');
             if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
         });
 
@@ -333,51 +676,86 @@
 
         // --- 逻辑处理 ---
         function processFile(file) {
-            if (!file.type.startsWith('image/')) return showToast('Image only');
+            if (!file.type.startsWith('image/')) {
+                showToast('请上传图片文件', true);
+                return;
+            }
 
-            // UI 状态更新
+            // 客户端文件大小检查
+            const maxSize = 16 * 1024 * 1024; // 16MB
+            if (file.size > maxSize) {
+                showToast('文件过大，最大支持 16MB', true);
+                return;
+            }
+
+            // UI 状态更新：显示加载
             dropZone.style.display = 'none';
-            loader.style.display = 'block';
+            resultView.style.display = 'none';
+            loaderContainer.style.display = 'flex';
 
             // 调用后端 API
             const formData = new FormData();
             formData.append('file', file);
 
             fetch('/upload', { method: 'POST', body: formData })
-                .then(res => res.json())
+                .then(res => {
+                    if (res.status === 429) {
+                        throw new Error('请求过于频繁，请稍后再试');
+                    }
+                    return res.json();
+                })
                 .then(data => {
                     if (data.success) {
-                        showResult(data.latex, data.mathml_word_compatible || data.mathml);
+                        const latex = data.latex;
+                        const mathml = data.mathml_word_compatible || data.mathml;
+                        showResult(latex, mathml);
+                        saveToHistory(latex, mathml);
                     } else {
-                        showToast('Error: ' + (data.error || 'Failed'));
+                        showToast(data.error || '识别失败', true);
                         resetApp();
                     }
                 })
                 .catch(err => {
                     console.error(err);
-                    showToast('Upload failed. Check console.');
+                    showToast(err.message || '上传失败，请检查网络', true);
                     resetApp();
                 })
                 .finally(() => {
-                    loader.style.display = 'none';
+                    loaderContainer.style.display = 'none';
                 });
         }
 
         function showResult(latex, mathml) {
             resultView.style.display = 'block';
+            dropZone.style.display = 'none';
+            loaderContainer.style.display = 'none';
 
             // 存储数据到全局变量
             formulaData.latex = latex;
             formulaData.mathml = mathml;
 
-            // 渲染公式
+            // 安全渲染公式（防止XSS）
             const renderBox = document.getElementById('renderOutput');
-            renderBox.innerHTML = `$$${latex}$$`;
-            if (window.MathJax) MathJax.typesetPromise([renderBox]);
+            // 使用 textContent 设置内容，然后让 MathJax 处理
+            renderBox.textContent = `$$${latex}$$`;
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise([renderBox]).catch(err => {
+                    console.error('MathJax 渲染失败:', err);
+                    // 回退：显示纯文本
+                    renderBox.textContent = latex;
+                });
+            }
+
+            // 重置复制按钮状态
+            document.getElementById('copyLatexBtn').textContent = '复制';
+            document.getElementById('copyLatexBtn').classList.remove('copied');
+            document.getElementById('copyMathmlBtn').textContent = '复制';
+            document.getElementById('copyMathmlBtn').classList.remove('copied');
         }
 
         function resetApp() {
             resultView.style.display = 'none';
+            loaderContainer.style.display = 'none';
             dropZone.style.display = 'flex';
             fileInput.value = '';
             formulaData = { latex: '', mathml: '' };
@@ -386,22 +764,34 @@
         function copyData(type) {
             const text = formulaData[type];
             if (!text) {
-                showToast('No data to copy');
+                showToast('没有可复制的内容', true);
                 return;
             }
+            
+            const btnId = type === 'latex' ? 'copyLatexBtn' : 'copyMathmlBtn';
+            const btn = document.getElementById(btnId);
+            
             navigator.clipboard.writeText(text).then(() => {
-                showToast('Copied');
+                btn.textContent = '已复制 ✓';
+                btn.classList.add('copied');
+                showToast('已复制到剪贴板');
+                
+                setTimeout(() => {
+                    btn.textContent = '复制';
+                    btn.classList.remove('copied');
+                }, 2000);
             }).catch(err => {
-                console.error('Copy failed:', err);
-                showToast('Copy failed');
+                console.error('复制失败:', err);
+                showToast('复制失败', true);
             });
         }
 
-        function showToast(msg) {
+        function showToast(msg, isError = false) {
             const t = document.getElementById('toast');
             t.textContent = msg;
+            t.classList.toggle('error', isError);
             t.classList.add('active');
-            setTimeout(() => t.classList.remove('active'), 2000);
+            setTimeout(() => t.classList.remove('active'), 2500);
         }
     </script>
 </body>
