@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathPix Lite - 现代极简公式识别</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* --- 核心变量定义 --- */
+        :root {
+            /* 品牌色：使用更高级的靛蓝色 (Indigo) 代替原本的高饱和紫色 */
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            /* 背景色系 */
+            --bg-body: #F9FAFB;
+            --bg-card: #FFFFFF;
+            /* 文字颜色 */
+            --text-main: #111827;
+            --text-sub: #6B7280;
+            /* 边框与分割线 */
+            --border: #E5E7EB;
+            /* 代码块样式 */
+            --code-bg: #1F2937;
+            --code-text: #F3F4F6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 60px 20px;
+            line-height: 1.6;
+        }
+
+        /* --- 头部设计 --- */
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeIn 0.6s ease;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-sub);
+            font-size: 1.1rem;
+        }
+
+        /* --- 主容器 --- */
+        .container {
+            width: 100%;
+            max-width: 960px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* --- 卡片通用样式 --- */
+        .card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 10px 15px -3px rgba(0, 0, 0, 0.03);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        /* --- 上传区域 --- */
+        .upload-section {
+            padding: 40px;
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 2px dashed #D1D5DB;
+            border-radius: 16px;
+            padding: 60px 20px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #F9FAFB;
+            position: relative;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: var(--primary);
+            background: #EEF2FF;
+            transform: scale(1.005);
+        }
+
+        .icon-box {
+            width: 64px;
+            height: 64px;
+            background: #E0E7FF;
+            color: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 32px;
+            transition: transform 0.3s;
+        }
+
+        .upload-area:hover .icon-box {
+            transform: scale(1.1) rotate(10deg);
+        }
+
+        .upload-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            color: var(--text-sub);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+        }
+
+        .kbd-tag {
+            background: white;
+            border: 1px solid #D1D5DB;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 0.8rem;
+            font-family: monospace;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* --- 结果展示区 (Grid布局) --- */
+        .result-grid {
+            display: none;
+            /* 默认隐藏 */
+            grid-template-columns: 1fr 1.4fr;
+            gap: 24px;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        .result-grid.show {
+            display: grid;
+        }
+
+        /* 响应式：手机端变单列 */
+        @media (max-width: 768px) {
+            .result-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 0 10px;
+            }
+
+            body {
+                padding-top: 30px;
+            }
+        }
+
+        .preview-card,
+        .code-card {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-header {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-sub);
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-img-container {
+            background: #F3F4F6;
+            border-radius: 12px;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 150px;
+            border: 1px solid var(--border);
+        }
+
+        .preview-img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .math-render-box {
+            margin-top: 24px;
+            padding: 30px 20px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            text-align: center;
+            font-size: 1.3rem;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- 代码块样式 --- */
+        .code-block {
+            background: var(--code-bg);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .code-header {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .lang-badge {
+            font-size: 0.75rem;
+            color: #9CA3AF;
+            font-weight: 500;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #D1D5DB;
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-color: white;
+        }
+
+        .code-content {
+            padding: 16px;
+            color: var(--code-text);
+            font-family: 'Menlo', 'Monaco', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .hint-box {
+            background: #EFF6FF;
+            border: 1px solid #BFDBFE;
+            color: #1E40AF;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: flex;
+            gap: 10px;
+            align-items: start;
+            margin-top: auto;
+            /* 推到底部 */
+        }
+
+        /* --- 动画与 Loading --- */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #E5E7EB;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .btn-reset {
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            text-decoration: underline;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        /* --- Toast 提示 --- */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #111827;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+            z-index: 2000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>📐 MathPix Lite</h1>
+        <p class="subtitle">极简 AI 数学公式识别助手</p>
+    </header>
+
+    <div class="container">
+
+        <div class="card upload-section" id="uploadSection">
+            <div class="upload-area" id="dropZone">
+                <div class="icon-box">📷</div>
+                <h3 class="upload-title">点击上传 或 拖拽图片</h3>
+                <p class="upload-hint">支持截图后直接 <kbd class="kbd-tag">Ctrl + V</kbd> 粘贴</p>
+                <input type="file" id="fileInput" hidden accept="image/*">
+                <button class="btn-reset"
+                    style="text-decoration: none; border: 1px solid #D1D5DB; padding: 8px 20px; border-radius: 8px; font-size: 0.9rem;">
+                    选择文件
+                </button>
+            </div>
+        </div>
+
+        <div class="result-grid" id="resultSection">
+            <div class="card preview-card">
+                <div class="section-header">
+                    <span>原始图片</span>
+                </div>
+                <div class="preview-img-container" id="imagePreview">
+                </div>
+
+                <div class="section-header" style="margin-top: 24px;">
+                    <span>渲染效果</span>
+                    <span
+                        style="font-size: 0.7rem; background:#ECFDF5; color:#059669; padding:2px 6px; border-radius:4px;">MathJax</span>
+                </div>
+                <div class="math-render-box" id="renderOutput">
+                    $$ \dots $$
+                </div>
+            </div>
+
+            <div class="card code-card">
+                <div class="section-header">
+                    <span>识别结果</span>
+                    <button class="btn-reset" onclick="resetApp()">识别下一张</button>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="lang-badge">LaTeX</span>
+                        <button class="copy-btn" onclick="copyText('latexOutput')">复制</button>
+                    </div>
+                    <div class="code-content" id="latexOutput"></div>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="lang-badge">Word (MathML)</span>
+                        <button class="copy-btn" onclick="copyText('wordOutput')">复制</button>
+                    </div>
+                    <div class="code-content" id="wordOutput"></div>
+                </div>
+
+                <div class="hint-box">
+                    <span style="font-size: 1.2rem;">💡</span>
+                    <div style="font-size: 0.85rem; line-height: 1.5;">
+                        <strong>Word 粘贴指南：</strong><br>
+                        复制下方的 MathML 代码，在 Word 中先按下 <kbd class="kbd-tag">Alt</kbd> + <kbd class="kbd-tag">=</kbd>
+                        插入公式框，然后粘贴即可。
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <h3 style="margin-top: 20px; font-weight: 500; color: #374151;">正在识别公式...</h3>
+        <p style="color: #6B7280; font-size: 0.9rem; margin-top: 5px;">AI 正在分析像素结构</p>
+    </div>
+
+    <div class="toast" id="toast">已复制到剪贴板</div>
+
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        // --- 逻辑控制 ---
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const uploadSection = document.getElementById('uploadSection');
+
+        // 点击上传
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) handleFile(e.target.files[0]);
+        });
+
+        // 拖拽支持
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+
+        // 粘贴支持
+        document.addEventListener('paste', (e) => {
+            const items = e.clipboardData.items;
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    handleFile(item.getAsFile());
+                    showToast('检测到图片，开始处理...');
+                    break;
+                }
+            }
+        });
+
+        // 核心处理函数
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showToast('请上传图片文件');
+                return;
+            }
+
+            // 1. 显示 Loading
+            loading.style.display = 'flex';
+
+            // 2. 预览图片
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('imagePreview').innerHTML = `<img src="${e.target.result}" class="preview-img">`;
+            };
+            reader.readAsDataURL(file);
+
+            // 3. 模拟后端 API 请求 (setTimeout)
+            // === 实际开发中，请将此处替换为 fetch('/upload'...) ===
+            setTimeout(() => {
+                // 模拟返回数据
+                const mockData = {
+                    latex: 'E = \\frac{mc^2}{\\sqrt{1 - \\frac{v^2}{c^2}}}',
+                    mathml: '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>=</mo><mfrac><mrow><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></mrow><msqrt><mrow><mn>1</mn><mo>-</mo><mfrac><msup><mi>v</mi><mn>2</mn></msup><msup><mi>c</mi><mn>2</mn></msup></mfrac></mrow></msqrt></mfrac></math>'
+                };
+
+                displayResult(mockData);
+                loading.style.display = 'none';
+            }, 1500);
+        }
+
+        function displayResult(data) {
+            // 填充文本
+            document.getElementById('latexOutput').textContent = data.latex;
+            document.getElementById('wordOutput').textContent = data.mathml;
+
+            // 渲染 MathJax
+            const renderBox = document.getElementById('renderOutput');
+            renderBox.innerHTML = `$$${data.latex}$$`;
+            if (window.MathJax) {
+                MathJax.typesetPromise([renderBox]);
+            }
+
+            // 切换视图
+            uploadSection.style.display = 'none'; // 隐藏上传框，让界面更清爽
+            resultSection.classList.add('show');  // 显示结果
+        }
+
+        function resetApp() {
+            resultSection.classList.remove('show');
+            uploadSection.style.display = 'block';
+            fileInput.value = '';
+            // 清空预览
+            document.getElementById('imagePreview').innerHTML = '';
+        }
+
+        // 工具函数
+        function copyText(id) {
+            const text = document.getElementById(id).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('复制成功');
+            });
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+
+</html>
